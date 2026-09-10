@@ -1,0 +1,2496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento Diario de Órdenes de Trabajo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#f5f6fa; --surface:#fff; --border:#e4e7ed; --border2:#d0d5dd;
+  --accent:#2563eb; --accent-l:#eff4ff; --accent2:#059669; --accent2-l:#ecfdf5;
+  --warn:#d97706; --warn-l:#fffbeb; --danger:#dc2626; --danger-l:#fef2f2;
+  --purple:#7c3aed; --purple-l:#f3f0ff;
+  --text:#111827; --text2:#374151; --muted:#6b7280; --muted2:#9ca3af;
+  --radius:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.10);
+}
+
+/* ── MODO OSCURO ── */
+body.dark-mode {
+  --bg:#0f1419; --surface:#1a2128; --border:#2d3640; --border2:#3a4450;
+  --accent:#5b9bf5; --accent-l:#1e2d42; --accent2:#34d399; --accent2-l:#0f2e22;
+  --warn:#fbbf24; --warn-l:#3a2e0f; --danger:#f87171; --danger-l:#3a1414;
+  --purple:#a78bfa; --purple-l:#2a2140;
+  --text:#e8eaed; --text2:#c4c9d0; --muted:#8a929e; --muted2:#5f6770;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+  --shadow-md:0 4px 16px rgba(0,0,0,.5);
+}
+body.dark-mode .ticket-falabella{background:#3d4d1f !important;border-color:#5a7029 !important;}
+body.dark-mode .nivel-p1{box-shadow:0 1px 4px rgba(242,70,226,.25);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background-color .25s,color .25s;}
+
+/* ── LANDING ── */
+#landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;gap:24px;}
+.landing-wrap{width:100%;max-width:1280px;display:flex;flex-direction:row;gap:24px;align-items:flex-start;justify-content:center;}
+
+/* Dashboard (gráfico + indicadores) */
+.dashboard-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 32px;flex:1 1 600px;min-width:0;box-shadow:var(--shadow-md);order:2;}
+.dashboard-title{font-size:18px;font-weight:700;color:var(--text);text-align:center;margin-bottom:4px;}
+.dashboard-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:18px;}
+.chart-wrap{position:relative;height:280px;margin-bottom:24px;}
+.dash-indicators{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.dash-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;}
+/* Botones de filtro Lima/Provincia/Ambos en el BackLog */
+.dash-ubicacion-filter{display:flex;gap:6px;}
+.dash-ub-btn{padding:5px 14px;border-radius:99px;border:1.5px solid var(--border2);background:var(--surface);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:var(--muted);transition:all .15s;}
+.dash-ub-btn:hover{border-color:var(--accent);color:var(--accent);}
+.dash-ub-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.dash-card .dc-val{font-size:30px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;}
+.dash-card .dc-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;font-weight:600;}
+.dc-open{color:#2563eb;}
+.dc-diag{color:#7c3aed;}
+.dc-calidad{color:#059669;}
+.dc-pend{color:#d97706;}
+.dashboard-empty{text-align:center;padding:40px 20px;color:var(--muted);}
+.dashboard-empty .icon{font-size:36px;margin-bottom:10px;}
+.dashboard-empty p{font-size:13px;}
+
+.landing-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:440px;max-width:95vw;flex-shrink:0;box-shadow:var(--shadow-md);text-align:center;order:1;position:relative;}
+
+/* Botón de modo oscuro/claro — esquina superior derecha de la tarjeta de selección */
+.dark-mode-toggle{
+  position:absolute; top:18px; right:18px;
+  width:42px; height:42px; border-radius:50%;
+  background:var(--bg); border:1.5px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; cursor:pointer; transition:all .15s;
+}
+.dark-mode-toggle:hover{border-color:var(--accent); transform:scale(1.08);}
+.landing-icon{font-size:44px;margin-bottom:16px;}
+.landing-card h1{font-size:21px;font-weight:700;margin-bottom:6px;}
+.landing-card p{font-size:13px;color:var(--muted);margin-bottom:28px;}
+.view-options{display:flex;flex-direction:column;gap:12px;}
+.view-btn{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:var(--radius);border:1.5px solid var(--border);background:var(--surface);cursor:pointer;text-align:left;transition:all .15s;font-family:'Inter',sans-serif;}
+.view-btn:hover{border-color:var(--accent);background:var(--accent-l);}
+.view-btn .vb-icon{font-size:22px;flex-shrink:0;}
+.view-btn .vb-text strong{display:block;font-size:14px;font-weight:600;color:var(--text);}
+.view-btn .vb-text span{font-size:12px;color:var(--muted);}
+.divider{display:flex;align-items:center;gap:10px;margin:8px 0;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+@media(max-width:1000px){
+  .landing-wrap{flex-direction:column;align-items:center;}
+  .dashboard-card{flex:1 1 auto;width:100%;max-width:600px;}
+}
+@media(max-width:700px){
+  .dash-indicators{grid-template-columns:repeat(2,1fr);}
+  .chart-wrap{height:220px;}
+}
+.divider span{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.6px;}
+.tec-picker{display:none;flex-direction:column;gap:8px;margin-top:4px;}
+.tec-picker.open{display:flex;}
+.tec-picker select,.tec-picker .btn{width:100%;}
+.tec-picker select{padding:10px 12px;border-radius:var(--radius);border:1.5px solid var(--border);font-size:13px;color:var(--text);background:var(--surface);outline:none;font-family:'Inter',sans-serif;cursor:pointer;}
+.tec-picker select:focus{border-color:var(--accent);}
+
+/* login admin */
+.admin-login{display:none;flex-direction:column;gap:8px;margin-top:4px;}
+.admin-login.open{display:flex;}
+.admin-login input{padding:10px 12px;border-radius:var(--radius);border:1.5px solid var(--border);font-size:13px;outline:none;font-family:'Inter',sans-serif;}
+
+/* Campo de contraseña con ícono de ojo para mostrar/ocultar */
+.password-field-wrap{position:relative; width:100%;}
+.password-field-wrap input{width:100%; padding-right:38px;}
+.password-eye{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  cursor:pointer; font-size:16px; user-select:none; opacity:.6;
+  transition:opacity .15s;
+}
+.password-eye:hover{opacity:1;}
+.admin-login input:focus{border-color:var(--accent);}
+.admin-login .btn{width:100%;justify-content:center;}
+.admin-login .err{font-size:12px;color:var(--danger);display:none;}
+.admin-login .err.show{display:block;}
+
+/* ── APP ── */
+#app{display:none;}
+
+/* ── HEADER ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);flex-wrap:wrap;gap:10px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.logo-text h1{font-size:15px;font-weight:700;}
+.logo-text p{font-size:11px;color:var(--muted);}
+.logo-text p#headerSub.is-tecnico{font-size:13px;font-weight:600;color:var(--muted);}
+.header-right{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+
+/* stat pills — separados/independientes */
+.header-stats{display:flex;gap:8px;flex-wrap:wrap;}
+.stat-pill{text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 14px;min-width:64px;}
+.stat-pill .val{font-size:19px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1;}
+.stat-pill .lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:1px;white-space:nowrap;}
+.stat-open{color:#2563eb;}
+.stat-bandeja{color:#7c3aed;}
+.stat-crit{color:#b91c1c;}
+.stat-billable{color:#059669;}
+.stat-warranty{color:#0d9488;}
+.stat-pend{color:#d97706;}
+.stat-calidad{color:#0d9488;}
+.stat-clickable{cursor:pointer;transition:all .15s;}
+.stat-clickable:hover{border-color:var(--accent);background:#eef2ff;transform:translateY(-1px);}
+.stat-clickable.is-active{background:var(--accent) !important;border-color:var(--accent) !important;}
+.stat-clickable.is-active .val,.stat-clickable.is-active .lbl{color:#fff !important;}
+
+.view-badge{display:flex;align-items:center;gap:6px;background:var(--accent-l);border:1px solid #bfdbfe;border-radius:99px;padding:6px 16px;font-size:15px;font-weight:700;color:var(--accent);cursor:pointer;transition:all .15s;}
+.view-badge:hover{background:#dbe7ff;}
+.view-badge.no-click{cursor:default;}
+.view-badge.no-click:hover{background:var(--accent-l);}
+.btn-switch{background:none;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;font-weight:500;}
+.btn-switch:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:4px;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;user-select:none;transition:all .12s;white-space:nowrap;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.tab:hover:not(.active){color:var(--text2);}
+
+/* ── MAIN ── */
+main{padding:22px 28px;max-width:1800px;margin:0 auto;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:'Inter',sans-serif;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#1d4ed8;}
+.btn-ghost{background:var(--surface);color:var(--text2);border:1px solid var(--border2);}.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover{background:#b91c1c;}
+input[type="file"]{display:none;}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+.search-box{margin-left:auto;position:relative;}
+.search-box input{background:var(--surface);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:8px 12px 8px 34px;font-size:13px;width:220px;outline:none;transition:border-color .15s;}
+.search-box input:focus{border-color:var(--accent);}
+.search-box .icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:13px;pointer-events:none;}
+
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.filter-select{background:var(--surface);border:1px solid var(--border2);color:var(--text2);border-radius:var(--radius);padding:7px 11px;font-size:12px;outline:none;cursor:pointer;font-family:'Inter',sans-serif;}
+.search-select-wrap{display:inline-block;}
+.search-select-input{cursor:text; width:150px;}
+.filter-select:focus{border-color:var(--accent);}
+
+/* ── TABLE (admin) ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{background:#f9fafb;padding:10px 13px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;position:relative;}
+
+/* Manija de redimensión en el borde derecho de cada columna */
+.col-resize-handle{
+  position:absolute; top:0; right:0; bottom:0; width:6px;
+  cursor:col-resize; user-select:none; z-index:5;
+}
+.col-resize-handle:hover, .col-resize-handle.resizing{background:rgba(37,99,235,.3);}
+table.resizable-table{table-layout:fixed;}
+table.resizable-table th, table.resizable-table td{overflow:hidden; text-overflow:ellipsis;}
+thead th:hover{color:var(--accent);}
+thead th.sort-asc::after{content:" ↑";color:var(--accent);}
+thead th.sort-desc::after{content:" ↓";color:var(--accent);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#f9fafb;}
+td{padding:10px 13px;vertical-align:top;color:var(--text2);}
+td.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap;}
+.badge-green{background:var(--accent2-l);color:var(--accent2);}
+.badge-blue{background:var(--accent-l);color:var(--accent);}
+.badge-warn{background:var(--warn-l);color:var(--warn);}
+.badge-danger{background:var(--danger-l);color:var(--danger);}
+.badge-gray{background:#f3f4f6;color:var(--muted);}
+
+/* Modalidad badges */
+.mod-carryin{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;background:#fff94d;color:#7a6600;}
+.mod-depot{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;background:#bbf7d0;color:#166534;}
+.mod-other{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:#f3f4f6;color:var(--muted);}
+
+/* ── LOG ── */
+.log-cell{min-width:240px;max-width:300px;}
+.log-entry{margin-bottom:4px;padding:4px 8px;background:var(--accent-l);border-left:2px solid var(--accent);border-radius:0 4px 4px 0;font-size:11px;line-height:1.4;}
+.log-entry .log-date{color:var(--accent);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:10px;}
+.log-entry .log-text{color:var(--text2);}
+.log-form{display:flex;gap:5px;margin-top:5px;}
+.log-form input{flex:1;background:#f9fafb;border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:5px 8px;font-size:11px;outline:none;font-family:'Inter',sans-serif;}
+.log-form input:focus{border-color:var(--accent);}
+.log-form button{background:var(--accent);border:none;color:#fff;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:700;}
+.log-form button:hover{background:#1d4ed8;}
+
+/* ── BANDEJA (lista rectangular) ── */
+.bandeja{display:flex;flex-direction:column;gap:10px;}
+
+.ticket{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;box-shadow:var(--shadow);transition:box-shadow .15s;
+  display:grid;grid-template-columns:220px 1fr auto auto;gap:0 8px;align-items:start;
+}
+.ticket:hover{box-shadow:var(--shadow-md);}
+
+/* Falabella — fondo verde fosforescente */
+.ticket-falabella{background:#ccff44 !important;border-color:#99cc00 !important;}
+.ticket-falabella .log-entry{background:rgba(0,0,0,.06) !important;}
+
+/* columna izq */
+.ticket-left{display:flex;flex-direction:column;gap:7px;}
+.ticket-num{
+  font-family:'JetBrains Mono',monospace;
+  font-size:20px;font-weight:700;color:var(--accent);
+  letter-spacing:-.5px;line-height:1;
+}
+.ticket-estado .badge{font-size:15px !important;padding:4px 13px !important;border-radius:8px !important;white-space:normal;word-break:break-word;max-width:200px;line-height:1.3;}
+.adp-yes{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;background:#e0f2fe;color:#0369a1;}
+.adp-no {display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;background:#fce7f3;color:#be185d;}
+/* Técnico Asignado — destacado, más grande */
+.ticket-field{font-size:13px;color:var(--muted);}
+.ticket-field strong{color:var(--text2);font-weight:500;}
+
+/* columna centro */
+.ticket-center{}
+.ticket-desc{
+  font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  position:relative;cursor:default;
+}
+.ticket-desc[title]:hover::after{
+  content:attr(title);position:absolute;left:0;top:calc(100% + 4px);z-index:99;
+  background:#1e293b;color:#f8fafc;font-size:12px;font-weight:400;
+  padding:8px 12px;border-radius:6px;line-height:1.5;
+  width:500px;max-width:90vw;white-space:pre-wrap;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+.ticket-meta{display:flex;flex-wrap:wrap;gap:5px 18px;margin-bottom:9px;}
+.ticket-meta-row{font-size:12px;color:var(--muted);}
+.ticket-meta-row strong{color:var(--text2);font-weight:500;}
+.ticket-logs{border-top:1px solid var(--border);padding-top:8px;}
+.ticket-log-form{display:flex;gap:6px;margin-top:7px;}
+.ticket-log-form input{flex:1;background:#f9fafb;border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:12px;outline:none;font-family:'Inter',sans-serif;color:var(--text);}
+.ticket-log-form input:focus{border-color:var(--accent);}
+.ticket-log-form button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.ticket-log-form button:hover{background:#1d4ed8;}
+
+/* ECT — columna derecha */
+.ticket-right{display:flex;align-items:flex-start;justify-content:flex-end;}
+.ect-badge{font-size:13px;font-weight:700;padding:6px 10px;border-radius:8px;text-align:center;min-width:70px;line-height:1.3;}
+.ect-high{background:#fee2e2;color:#b91c1c;}
+.ect-low {background:#fef9c3;color:#92400e;}
+.ect-none{background:#f3f4f6;color:var(--muted);}
+
+/* Columna propia para la bandera de prioridad, a la derecha de ECT */
+.ticket-flag-col{display:flex; align-items:flex-start; justify-content:center; padding-top:2px;}
+
+/* Nombre del técnico asignado — esquina inferior derecha de la tarjeta */
+.ticket-tecnico-corner{
+  font-size:11px; font-weight:600; color:var(--muted); text-align:right;
+  white-space:nowrap; margin-top:4px;
+}
+
+/* Desviación abreviada, debajo del ECT, centrada */
+.ticket-desv-abrev{
+  font-size:13px; font-weight:700; color:var(--warn);
+  background:var(--warn-l); padding:4px 11px; border-radius:7px; text-align:center;
+}
+
+/* Línea divisoria entre Descripción y Contacto: vive DENTRO de la columna
+   central (igual que la de Bitácora), por eso mide exactamente lo mismo. */
+.ticket-divider-full{
+  border-top:1px solid var(--border);
+  margin:8px 0;
+}
+
+/* Bandera de prioridad (estilo Outlook) — más grande y con espacio respecto al ECT */
+.priority-flag{
+  font-size:30px; line-height:1; filter:grayscale(1) opacity(.35);
+  transition:all .15s; user-select:none; margin-top:4px;
+}
+.priority-flag.clickable{cursor:pointer;}
+.priority-flag.clickable:hover{filter:grayscale(.5) opacity(.7); transform:scale(1.15);}
+.priority-flag.is-active{filter:none; opacity:1;}
+.priority-flag.readonly{cursor:default; font-size:42px;}
+.priority-flag.table-flag{font-size:16px !important; margin-top:0;}
+.ticket-priority{box-shadow:0 0 0 2px #dc2626 inset; }
+
+/* Nivel de Garantía — resaltado fucsia intenso cuando es "P1 Estándar" */
+.nivel-p1{
+  display:inline-block; padding:4px 10px; border-radius:7px;
+  background:#F246E2; color:#fff; font-weight:700; font-size:13px;
+  box-shadow:0 1px 4px rgba(242,70,226,.45);
+}
+.nivel-p1 strong{color:#fff;}
+
+
+/* ── VISTA TABLA BANDEJA ── */
+.bandeja-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;box-shadow:var(--shadow);}
+.bandeja-table-wrap table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.bandeja-table-wrap thead th{background:#f9fafb;padding:10px 13px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+.bandeja-table-wrap tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+.bandeja-table-wrap tbody tr:hover{background:#f9fafb;}
+.bandeja-table-wrap td{padding:9px 13px;vertical-align:top;color:var(--text2);}
+.bandeja-table-wrap td.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+.bj-desc-cell{
+  max-width:240px;font-size:11.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  position:relative;cursor:default;
+}
+.bj-desc-cell[title]:hover::after{
+  content:attr(title);position:absolute;left:0;top:calc(100% + 4px);z-index:99;
+  background:#1e293b;color:#f8fafc;font-size:12px;font-weight:400;
+  padding:8px 12px;border-radius:6px;line-height:1.5;
+  width:420px;max-width:90vw;white-space:pre-wrap;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+.log-expand-btn{
+  display:block;margin-top:4px;background:none;border:none;
+  color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;
+  padding:2px 0;font-family:'Inter',sans-serif;
+}
+.log-expand-btn:hover{text-decoration:underline;}
+/* view toggle */
+.view-toggle{display:flex;gap:4px;border:1px solid var(--border2);border-radius:var(--radius);padding:3px;background:var(--surface);}
+.view-toggle button{border:none;background:none;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:var(--muted);transition:all .12s;}
+.view-toggle button.active{background:var(--accent);color:#fff;}
+/* search bandeja */
+.bj-search{position:relative;}
+.bj-search input{background:var(--surface);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);padding:7px 11px 7px 32px;font-size:12px;width:200px;outline:none;}
+.bj-search input:focus{border-color:var(--accent);}
+.bj-search .icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:12px;pointer-events:none;}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-state .icon{font-size:44px;margin-bottom:14px;}
+.empty-state h2{font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.empty-state p{font-size:13px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--accent);color:#fff;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;box-shadow:var(--shadow-md);transform:translateY(70px);opacity:0;transition:all .25s;z-index:999;}
+#toast.show{transform:translateY(0);opacity:1;}
+
+/* ── MODAL: motivo de prioridad ── */
+.priority-modal-overlay{
+  display:none; position:fixed; inset:0; background:rgba(15,23,42,.55);
+  z-index:1000; align-items:center; justify-content:center; padding:20px;
+}
+.priority-modal-overlay.open{display:flex;}
+.priority-modal{
+  background:var(--surface); border-radius:14px; padding:24px;
+  width:440px; max-width:100%; box-shadow:var(--shadow-md);
+}
+.priority-modal h3{font-size:16px; font-weight:700; margin-bottom:10px;}
+.priority-modal p{font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.5;}
+.priority-modal textarea{
+  width:100%; border:1.5px solid var(--border2); border-radius:var(--radius);
+  padding:10px 12px; font-size:13px; font-family:'Inter',sans-serif;
+  resize:vertical; outline:none;
+}
+.priority-modal textarea:focus{border-color:var(--accent);}
+.priority-modal-err{display:none; color:var(--danger); font-size:12px; margin-top:6px;}
+.priority-modal-err.show{display:block;}
+.priority-modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:16px;}
+
+/* Modal de alerta: Pend. Estado */
+.pending-alert-modal{width:760px; max-width:95vw;}
+.pending-alert-list{max-height:380px; overflow-y:auto; overflow-x:auto; margin-top:8px;}
+.pending-alert-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+.pending-alert-table thead th{
+  background:var(--bg); padding:8px 10px; text-align:left;
+  font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+  color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap;
+}
+.pending-alert-table tbody td{
+  padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text2);
+}
+.pending-alert-table tbody tr:hover{background:var(--bg);}
+.pending-alert-table .pa-orden{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--accent); white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ LANDING ══════════════════════ -->
+<div id="landing">
+  <div class="landing-wrap">
+
+    <!-- Dashboard: BackLog del Laboratorio -->
+    <div class="dashboard-card" id="dashboardCard" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div class="dashboard-title" style="margin-bottom:0;">BackLog del Laboratorio</div>
+        <div class="dash-ubicacion-filter">
+          <button class="dash-ub-btn active" id="dub-ambos" onclick="setDashUbicacion('Ambos')">Ambos</button>
+          <button class="dash-ub-btn" id="dub-lima" onclick="setDashUbicacion('Lima')">Lima</button>
+          <button class="dash-ub-btn" id="dub-provincia" onclick="setDashUbicacion('Provincia')">Provincia</button>
+        </div>
+      </div>
+      <div class="dashboard-sub" style="text-align:left;margin-bottom:18px;">Órdenes de trabajo abiertas, agrupadas por antigüedad (días)</div>
+      <div class="chart-wrap" style="height:310px;">
+        <canvas id="backlogChart"></canvas>
+      </div>
+      <div id="dashboardEmpty" class="dashboard-empty" style="display:none">
+        <div class="icon">📊</div>
+        <p>Aún no hay órdenes cargadas. Importa un Excel desde la Vista Administrador para ver el BackLog.</p>
+      </div>
+      <div class="dash-indicators">
+        <div class="dash-card"><div class="dc-val dc-open" id="dc-open">0</div><div class="dc-lbl">WO Abiertas</div></div>
+        <div class="dash-card"><div class="dc-val dc-diag" id="dc-diag">0</div><div class="dc-lbl">Diag y Repair</div></div>
+        <div class="dash-card"><div class="dc-val dc-calidad" id="dc-calidad">0</div><div class="dc-lbl">Calidad</div></div>
+        <div class="dash-card"><div class="dc-val dc-pend" id="dc-pend">0</div><div class="dc-lbl">Pend. Asignación</div></div>
+      </div>
+    </div>
+
+    <div class="landing-card">
+    <button class="dark-mode-toggle" id="darkModeToggle" onclick="toggleDarkMode()" title="Cambiar modo claro/oscuro">🌙</button>
+    <div class="landing-icon">📋</div>
+    <h1>Seguimiento Diario de Órdenes de Trabajo</h1>
+
+    <!-- ── PANEL DE LOGIN (visible antes de autenticarse) ── -->
+    <div id="loginPanel">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Ingresa tus credenciales para acceder al sistema</p>
+      <div style="display:flex;flex-direction:column;gap:10px;text-align:left;">
+        <input type="text" id="adminUser" placeholder="Usuario" style="padding:10px 12px;border-radius:var(--radius);border:1.5px solid var(--border2);font-size:13px;outline:none;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);">
+        <div class="password-field-wrap">
+          <input type="password" id="adminPass" placeholder="Contraseña" onkeydown="if(event.key==='Enter') tryAdminLogin()" style="padding:10px 12px;border-radius:var(--radius);border:1.5px solid var(--border2);font-size:13px;outline:none;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);width:100%;padding-right:38px;">
+          <span class="password-eye" onclick="togglePasswordVisibility('adminPass', this)" title="Mostrar/ocultar contraseña">👁️</span>
+        </div>
+        <span class="err" id="adminErr" style="font-size:12px;color:var(--danger);display:none;"></span>
+        <button class="btn btn-primary" id="adminLoginBtn" onclick="tryAdminLogin()" style="width:100%;justify-content:center;">Ingresar →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL DE OPCIONES (visible tras autenticarse, según rol) ── -->
+    <div id="optionsPanel" style="display:none;">
+      <p id="roleWelcome" style="font-size:13px;color:var(--muted);margin-bottom:20px;"></p>
+      <div class="view-options" id="viewOptions">
+        <!-- Se genera dinámicamente según el rol, incluyendo el tecPicker -->
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+        <button class="btn btn-danger" onclick="cerrarSesion()" style="width:100%;justify-content:center;font-size:12px;">Cerrar sesión</button>
+      </div>
+    </div>
+
+    </div> <!-- /landing-card -->
+
+  </div> <!-- /landing-wrap -->
+</div> <!-- /landing -->
+
+<!-- ══════════════════════ APP ══════════════════════ -->
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📋</div>
+      <div class="logo-text">
+        <h1>Seguimiento Diario de Órdenes</h1>
+        <p id="headerSub">Vista Administrador</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <!-- indicadores independientes -->
+      <div class="header-stats">
+        <div class="stat-pill"><div class="val stat-open" id="stat-open">0</div><div class="lbl">WO Abiertas</div></div>
+        <div class="stat-pill"><div class="val stat-bandeja" id="stat-bandeja">0</div><div class="lbl">En Bandeja</div></div>
+        <div class="stat-pill" id="pill-en-calidad"><div class="val stat-calidad" id="stat-en-calidad">0</div><div class="lbl">En Calidad</div></div>
+        <div class="stat-pill stat-clickable" id="pill-critical" onclick="filterByIndicator('critical')" title="Clic para ver solo las órdenes críticas (ECT ≥ 10 días)"><div class="val stat-crit" id="stat-critical">0</div><div class="lbl">Críticas ≥10d</div></div>
+        <div class="stat-pill stat-clickable" id="pill-billable" onclick="filterByIndicator('billable')" title="Clic para ver solo las órdenes Billable"><div class="val stat-billable" id="stat-billable">0</div><div class="lbl">Billable</div></div>
+        <div class="stat-pill stat-clickable" id="pill-warranty" onclick="filterByIndicator('warranty')" title="Clic para ver solo las órdenes Warranty"><div class="val stat-warranty" id="stat-warranty">0</div><div class="lbl">Warranty</div></div>
+        <div class="stat-pill"><div class="val stat-pend" id="stat-pending">0</div><div class="lbl">Pend. Estado</div></div>
+      </div>
+      <div class="view-badge" id="viewBadge" onclick="openSwitchTecnicoModal()" title="Clic para cambiar de técnico o bandeja">🛡️ Admin</div>
+      <span id="cloudStatus" style="font-size:11px;color:var(--muted2);"></span>
+      <button class="btn-switch" onclick="backToLanding()" title="Volver a la portada principal de la aplicación">Inicio</button>
+    </div>
+  </header>
+
+  <!-- tabs solo admin -->
+  <div class="tab-bar" id="tabBar">
+    <div class="tab active" onclick="switchTab('tabla')" title="Listado completo de todas las órdenes con filtros e importación de Excel">📊 Tabla general</div>
+    <div class="tab" onclick="switchTab('bandeja')" title="Filtra las órdenes por técnico, como si fuera la bandeja personal de cada uno">🎫 Bandeja por técnico</div>
+    <div class="tab" onclick="switchTab('calidad')" title="Muestra únicamente las órdenes en estado 'In Testing'">✅ Control de Calidad</div>
+    <div class="tab" onclick="switchTab('pendientes')" title="Muestra las órdenes cuyo Técnico Asignado es 'Otros' (sin asignar a una persona)">📥 Pendientes de Asignación</div>
+  </div>
+
+  <main>
+    <!-- toolbar admin -->
+    <div class="toolbar" id="adminToolbar">
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" title="Selecciona tu archivo Excel diario y reemplaza la base de órdenes para todo el equipo">⬆ Importar Excel</button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="loadExcel(event)">
+      <button class="btn btn-ghost" onclick="exportData()" title="Descarga un Excel con todas las órdenes actuales y sus notas de bitácora">⬇ Exportar</button>
+      <button class="btn btn-danger" onclick="clearAll()" title="Elimina TODAS las órdenes cargadas localmente (no afecta la bitácora en la nube)">🗑 Limpiar todo</button>
+      <div class="search-box">
+        <span class="icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Buscar…" oninput="renderCurrent()">
+      </div>
+    </div>
+
+    <!-- filtros tabla admin -->
+    <div class="filter-bar" id="filterBarTabla">
+      <div class="search-select-wrap">
+        <input type="text" class="filter-select search-select-input" id="filterEstado" list="filterEstadoList" placeholder="Estado: Todos" oninput="renderCurrent()">
+        <datalist id="filterEstadoList"></datalist>
+      </div>
+      <select class="filter-select" id="filterTecnico"   onchange="renderCurrent()"><option value="">Técnico: Todos</option></select>
+      <select class="filter-select" id="filterModalidad" onchange="renderCurrent()"><option value="">Modalidad: Todas</option></select>
+    </div>
+
+    <!-- filtros bandeja (admin + técnico + calidad + pendientes) -->
+    <div class="filter-bar" id="filterBarBandeja" style="display:none">
+      <select class="filter-select" id="bjTecSelect"   onchange="renderBandeja()" style="font-weight:600"><option value="">— Todos los técnicos —</option></select>
+      <div class="search-select-wrap">
+        <input type="text" class="filter-select search-select-input" id="bjEstado" list="bjEstadoList" placeholder="Estado: Todos" oninput="renderBandeja()">
+        <datalist id="bjEstadoList"></datalist>
+      </div>
+      <div class="search-select-wrap">
+        <input type="text" class="filter-select search-select-input" id="bjCliente" list="bjClienteList" placeholder="Contacto: Todos" oninput="renderBandeja()">
+        <datalist id="bjClienteList"></datalist>
+      </div>
+      <select class="filter-select" id="bjDesviacion"  onchange="renderBandeja()"><option value="">Desviación ↕: Todas</option></select>
+      <select class="filter-select" id="bjECT"         onchange="renderBandeja()"><option value="">ECT ↕: Todos</option></select>
+      <div class="bj-search"><span class="icon">🔍</span><input type="text" id="bjSearch" placeholder="Buscar orden (últimos 4 dígitos)…" title="Busca por número de orden completo, últimos dígitos, cliente, descripción o técnico" oninput="renderBandeja()"></div>
+      <div class="bj-search"><span class="icon">🔧</span><input type="text" id="bjSearchSerie" placeholder="Buscar por N° de Serie…" title="Busca únicamente en el campo Número de Serie" oninput="renderBandeja()"></div>
+      <span id="bandejaCount" style="font-size:12px;color:var(--muted);align-self:center;margin-left:4px"></span>
+      <button id="btnAlertaCorreo" onclick="enviarAlertaCorreo()" title="Genera un borrador de correo con los casos críticos de esta bandeja"
+        style="display:none;align-self:center;padding:7px 14px;border-radius:var(--radius);border:none;background:#dc2626;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+        📧 Alerta críticos
+      </button>
+      <div class="view-toggle" style="margin-left:auto">
+        <button id="btnViewTicket" class="active" onclick="setViewMode('ticket')" title="Ver las órdenes como tarjetas individuales">🎫</button>
+        <button id="btnViewTable"  onclick="setViewMode('table')"  title="Ver las órdenes en una tabla compacta de filas y columnas">📋</button>
+      </div>
+    </div>
+
+    <!-- TABLA -->
+    <div id="vistaTabla">
+      <div class="table-wrap">
+        <table id="adminMainTable">
+          <thead><tr>
+            <th onclick="sortBy('Nivel de Garantía')" title="Clic para ordenar por esta columna">Nivel Garantía</th>
+            <th onclick="sortBy('Modalidad')" title="Clic para ordenar por esta columna">Modalidad</th>
+            <th onclick="sortBy('Desviación')" title="Clic para ordenar por esta columna" style="white-space:nowrap;min-width:160px;">Desviación</th>
+            <th onclick="sortBy('Estado del Repuesto')" title="Clic para ordenar por esta columna">Repuesto</th>
+            <th onclick="sortBy('MT')" title="Clic para ordenar por esta columna">MT</th>
+            <th onclick="sortBy('Técnico Asignado')" title="Clic para ordenar por esta columna">Técnico</th>
+            <th onclick="sortBy('Estado')" title="Clic para ordenar por esta columna">Estado</th>
+            <th onclick="sortBy('Contacto')" title="Clic para ordenar por esta columna" style="min-width:130px;">Contacto</th>
+            <th onclick="sortBy('Servicio')" title="Clic para ordenar por esta columna">Servicio</th>
+            <th onclick="sortBy('ADP')" title="Clic para ordenar por esta columna" style="white-space:nowrap;min-width:55px;">ADP</th>
+            <th onclick="sortBy('Orden del Trabajo')" title="Clic para ordenar por esta columna">Orden</th>
+            <th onclick="sortBy('Descripción del Problema')" style="min-width:200px" title="Clic para ordenar por esta columna">Descripción</th>
+            <th onclick="sortBy('Serie')" title="Clic para ordenar por esta columna">Serie</th>
+            <th onclick="sortBy('ECT')" title="Clic para ordenar por esta columna">ECT</th>
+            <th title="Bandera de prioridad" style="white-space:nowrap;">PRIORIDAD</th>
+            <th style="min-width:260px">Bitácora</th>
+          </tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyTable" class="empty-state" style="display:none">
+          <div class="icon">📂</div><h2>Sin órdenes cargadas</h2>
+          <p>Importa un archivo Excel para comenzar.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANDEJA (técnico / admin-bandeja / calidad / pendientes — todas comparten grid) -->
+    <div id="vistaBandeja" style="display:none">
+      <div class="bandeja" id="bandejaGrid"></div>
+      <div class="bandeja-table-wrap" id="bandejaTableWrap" style="display:none">
+        <table id="bandejaMainTable">
+          <thead><tr id="bandejaTableHeadRow">
+            <th>N° Orden</th><th>Estado</th><th style="min-width:130px;">Cliente</th><th>Servicio</th><th>Descripción</th>
+            <th>Nivel Garantía</th><th>Modalidad</th><th>Serie</th><th>ECT</th><th title="Bandera de prioridad" style="white-space:nowrap;">PRIORIDAD</th><th style="white-space:nowrap;min-width:55px;">ADP</th><th style="white-space:nowrap;min-width:160px;">Desviación</th><th>Repuesto</th><th>MT</th><th class="th-tecnico" style="display:none">Técnico</th><th>Bitácora</th>
+          </tr></thead>
+          <tbody id="bandejaTableBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyBandeja" class="empty-state" style="display:none">
+        <div class="icon">🎫</div><h2>Sin órdenes</h2><p>No hay órdenes que coincidan con este filtro.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<!-- Modal: motivo obligatorio al activar prioridad -->
+<div id="priorityModalOverlay" class="priority-modal-overlay">
+  <div class="priority-modal">
+    <h3>🚩 Marcar orden como prioritaria</h3>
+    <p>Antes de activar la prioridad, registra el motivo. Esta nota quedará guardada en la bitácora de la orden <strong id="priorityModalOrden"></strong>.</p>
+    <textarea id="priorityModalMotivo" placeholder="Motivo de la priorización (obligatorio)…" rows="3"></textarea>
+    <span class="priority-modal-err" id="priorityModalErr">Debes escribir un motivo para continuar.</span>
+    <div class="priority-modal-actions">
+      <button class="btn btn-ghost" onclick="closePriorityModal()">Cancelar</button>
+      <button class="btn btn-primary" id="priorityModalConfirm" onclick="confirmPriorityModal()">🚩 Marcar y guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: alerta de órdenes pendientes de actualizar hoy -->
+<div id="pendingAlertOverlay" class="priority-modal-overlay">
+  <div class="priority-modal pending-alert-modal">
+    <h3>⚠️ ÓRDENES PENDIENTES DE ACTUALIZACIÓN HOY</h3>
+    <p id="pendingAlertSummary"></p>
+    <div id="pendingAlertList" class="pending-alert-list"></div>
+    <div class="priority-modal-actions">
+      <button class="btn btn-primary" onclick="closePendingAlert()">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: cambiar de técnico o bandeja, sin volver a la portada -->
+<div id="switchTecnicoOverlay" class="priority-modal-overlay">
+  <div class="priority-modal">
+    <h3>🔄 Cambiar de técnico o bandeja</h3>
+    <p>Sitio actual: <strong id="switchTecnicoUbicacion"></strong></p>
+    <select id="switchTecnicoSelect" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border2);font-size:13px;margin-top:6px;"></select>
+    <div class="priority-modal-actions">
+      <button class="btn btn-ghost" onclick="closeSwitchTecnicoModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmSwitchTecnico()">Ir →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: alerta de correo críticos -->
+<div id="alertaCorreoOverlay" class="priority-modal-overlay">
+  <div class="priority-modal" style="width:520px;">
+    <h3>📧 Alerta de casos críticos</h3>
+    <div id="alertaCorreoResumen" style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--muted);">
+        <strong style="color:var(--text2);">📋 Instrucciones:</strong><br>
+        1. Haz clic en <em>"Abrir correo y copiar cuerpo"</em> — se abrirá Outlook/Gmail con Para, CC y Asunto ya listos, y el cuerpo completo quedará en tu portapapeles.<br>
+        2. Haz clic dentro del cuerpo del correo y pega con <strong>Ctrl+V</strong> — aparecerán el texto y las tablas formateadas.<br>
+        3. Opcionalmente descarga el Excel para adjuntarlo.
+      </div>
+      <button class="btn btn-primary" id="btnAbrirCorreo" onclick="alertaAbrirCorreoYCopiar()" style="justify-content:center;padding:12px 16px;">
+        ✉️ Abrir correo y copiar cuerpo al portapapeles
+      </button>
+      <button class="btn" onclick="alertaDescargarExcel()" style="justify-content:center;background:#059669;color:#fff;border:none;padding:10px 16px;border-radius:var(--radius);cursor:pointer;font-weight:600;">
+        📥 Descargar Excel (Billable + Warranty)
+        <span style="display:block;font-size:11px;font-weight:400;opacity:.85;">Para adjuntar al correo</span>
+      </button>
+    </div>
+    <div class="priority-modal-actions" style="margin-top:14px;">
+      <button class="btn btn-ghost" onclick="cerrarAlertaCorreoModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS=['Ubicación','Nivel de Garantía','Servicio','Modalidad','Desviación','Técnico Asignado','Estado','Contacto','ADP','Orden del Trabajo','Estado del Repuesto','Descripción del Problema','Serie','ECT','MT','Actualización Diaria','Prioridad'];
+
+
+/* ════════════════════════════════════════════════════
+   BITÁCORA EN LA NUBE (Google Sheets)
+   Pega aquí la URL de tu Web App de Google Apps Script.
+   Mientras esté vacía, las notas solo se guardan localmente.
+   ════════════════════════════════════════════════════ */
+const SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbzPDXylCsr98Dmt-MX0Un2C3TSEatckUpWKCOvzMV6-pKbtxlETPzZ0oMF4DWdHeDHeVQ/exec";
+
+/* Debe ser EXACTAMENTE igual a SECRET_KEY en el Google Apps Script.
+   Protege las escrituras (subir órdenes / agregar notas) — no es
+   seguridad real ya que el HTML es público, pero evita que cualquiera
+   con la URL escriba o borre datos sin pasar por esta app. */
+const APP_SECRET_KEY = "DHL-Lab-2026-Seguridad";
+
+let orders=[], sortCol='', sortDir=1, viewMode='admin', currentTab='tabla', currentTec='';
+let bjSortField='ECT', bjSortDir=-1; // -1 = mayor a menor (default)
+let bandejaViewMode='ticket'; // 'ticket' | 'table'
+let activeIndicator=''; // '' | 'critical' | 'billable' | 'warranty' — filtro activado al clicar un indicador
+let selectedUbicacion=''; // 'Lima' | 'Provincia' — elegido en el primer paso de Vista Técnico
+let cloudLogs=[]; // bitácora centralizada cargada desde Google Sheets
+let lockedButtons=new Set(); // IDs de botones bloqueados temporalmente tras un guardado
+
+/* ── PERSIST (base de órdenes - local, se recarga con cada Excel) ── */
+function save(){ localStorage.setItem('bitacora_v5',JSON.stringify(orders)); }
+function load(){ try{ const r=localStorage.getItem('bitacora_v5'); if(r) orders=JSON.parse(r); }catch(e){} }
+
+/* ── SYNC CON GOOGLE SHEETS (bitácora + base de órdenes centralizada) ── */
+function cloudEnabled(){ return !!SHEETS_API_URL; }
+
+async function cloudLoadLogs(){
+  if(!cloudEnabled()) return;
+  try{
+    const res=await fetch(SHEETS_API_URL+'?type=bitacora');
+    const json=await res.json();
+    if(json.success){ cloudLogs=json.data||[]; renderCurrent(); updateStats(); }
+  }catch(err){ console.error('No se pudo leer la bitácora en la nube:',err); }
+}
+
+async function cloudSaveLog(entry){
+  if(!cloudEnabled()) return false;
+  try{
+    await fetch(SHEETS_API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({...entry, key:APP_SECRET_KEY})
+    });
+    return true;
+  }catch(err){ console.error('No se pudo guardar en la nube:',err); return false; }
+}
+
+/* Carga la base de órdenes que el Admin subió, para que todos la vean */
+async function cloudLoadOrdenes(){
+  if(!cloudEnabled()) return false;
+  try{
+    const res=await fetch(SHEETS_API_URL+'?type=ordenes');
+    const json=await res.json();
+    if(json.success && json.data && json.data.length){
+      orders = json.data.map(row=>{
+        const id=String(row['Orden del Trabajo']||Math.random());
+        return {...row, _id:id, _logs:[]};
+      });
+      save();
+      return true;
+    }
+    return false;
+  }catch(err){ console.error('No se pudo leer la base de órdenes en la nube:',err); return false; }
+}
+
+/* El Admin sube la base de órdenes completa a la nube (reemplaza lo anterior) */
+async function cloudSaveOrdenes(){
+  if(!cloudEnabled()) return false;
+  try{
+    const rows=orders.map(o=>{
+      const r={}; COLS.forEach(c=>r[c]=o[c]||''); return r;
+    });
+    await fetch(SHEETS_API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({type:'ordenes', rows, key:APP_SECRET_KEY})
+    });
+    return true;
+  }catch(err){ console.error('No se pudo subir la base de órdenes a la nube:',err); return false; }
+}
+
+/* Marca / desmarca la bandera de prioridad — SOLO disponible desde Vista Admin.
+   Se guarda en el campo 'Prioridad' de la orden y se sube a la nube de inmediato. */
+let pendingPriorityOrderId=null; // orden actualmente esperando confirmación del modal
+
+/* Se llama desde el botón de la bandera. Si va a ACTIVAR, abre el modal pidiendo motivo.
+   Si va a QUITAR, lo hace directo sin pedir nada. */
+function togglePrioridad(rawId){
+  if(viewMode!=='admin') return; // protección extra, aunque el botón no debería existir fuera de Admin
+  const id=decId(rawId);
+  const order=orders.find(o=>o._id===id); if(!order) return;
+
+  if(order['Prioridad']){
+    // Quitar prioridad: sin motivo, acción directa
+    quitarPrioridad(order);
+  } else {
+    // Activar prioridad: requiere motivo obligatorio vía modal
+    openPriorityModal(order);
+  }
+}
+
+function openPriorityModal(order){
+  pendingPriorityOrderId=order._id;
+  document.getElementById('priorityModalOrden').textContent='#'+(order['Orden del Trabajo']||'');
+  document.getElementById('priorityModalMotivo').value='';
+  document.getElementById('priorityModalErr').classList.remove('show');
+  document.getElementById('priorityModalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('priorityModalMotivo').focus(), 50);
+}
+
+function closePriorityModal(){
+  pendingPriorityOrderId=null;
+  document.getElementById('priorityModalOverlay').classList.remove('open');
+}
+
+async function confirmPriorityModal(){
+  const motivo=document.getElementById('priorityModalMotivo').value.trim();
+  const errEl=document.getElementById('priorityModalErr');
+  if(!motivo){
+    errEl.classList.add('show');
+    return;
+  }
+  errEl.classList.remove('show');
+
+  const order=orders.find(o=>o._id===pendingPriorityOrderId);
+  if(!order){ closePriorityModal(); return; }
+
+  const btn=document.getElementById('priorityModalConfirm');
+  btn.disabled=true; btn.textContent='Guardando…';
+
+  order['Prioridad']='Sí';
+  save(); renderCurrent(); updateStats();
+
+  let ok=true;
+  if(cloudEnabled()){
+    ok = await cloudSaveOrdenes();
+    if(ok){
+      await cloudSaveLog({
+        orden: order['Orden del Trabajo'],
+        tecnico: order['Técnico Asignado']||'Admin',
+        cliente: order['Contacto'],
+        nota: motivo,
+        origen: 'Admin',
+        cambioPrioridad: true
+      });
+      await cloudLoadLogs();
+    }
+  }
+
+  btn.disabled=false; btn.textContent='🚩 Marcar y guardar';
+  closePriorityModal();
+  showToast(ok ? '🚩 Marcada como prioritaria y motivo registrado' : '⚠ Se guardó local, pero falló la sincronización con la nube');
+}
+
+/* Quitar prioridad: acción directa, sin motivo, sin modal */
+async function quitarPrioridad(order){
+  order['Prioridad']='';
+  save(); renderCurrent(); updateStats();
+  if(cloudEnabled()){
+    const ok=await cloudSaveOrdenes();
+    showToast(ok ? '✔ Bandera de prioridad retirada' : '⚠ No se pudo sincronizar con la nube');
+  } else {
+    showToast('✔ Bandera de prioridad retirada (local)');
+  }
+}
+
+function getLogsForOrder(ordenId){
+  // Combina logs locales (fallback) + logs de la nube para esta orden
+  if(cloudEnabled()){
+    return cloudLogs.filter(l=>String(l['Orden del Trabajo'])===String(ordenId))
+      .map(l=>({date:formatLogDate(l['Fecha'],l['Hora']), text:l['Nota / Actualización'], tecnico:l['Técnico Asignado']}));
+  }
+  const order=orders.find(o=>o._id===ordenId);
+  return order?(order._logs||[]):[];
+}
+
+/* Convierte lo que venga de Google Sheets (texto "dd/MM/yyyy", o un Date/ISO) a "dd/MM" corto */
+function formatLogDate(fecha, hora){
+  let d = '';
+  if(fecha instanceof Date){
+    d = `${String(fecha.getDate()).padStart(2,'0')}/${String(fecha.getMonth()+1).padStart(2,'0')}`;
+  } else {
+    const s = String(fecha||'');
+    // ISO con fecha (ej: 2026-06-18T05:00:00.000Z)
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(isoMatch){ d = `${isoMatch[3]}/${isoMatch[2]}`; }
+    else {
+      // formato "dd/MM/yyyy"
+      const dmyMatch = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      d = dmyMatch ? `${dmyMatch[1]}/${dmyMatch[2]}` : s.slice(0,5);
+    }
+  }
+  return d;
+}
+
+/* ── LANDING ── */
+
+function toggleTecPicker(){
+  // Now handled via the options panel — opens/closes the tecPicker
+  const p=document.getElementById('tecPicker');
+  if(p) p.classList.toggle('open');
+}
+
+/* Se ejecuta cuando el usuario elige Lima o Provincia: habilita y llena el select de técnico */
+function onUbicacionChange(){
+  const ub=document.getElementById('ubicacionSelect').value;
+  selectedUbicacion=ub;
+  const tecSel=document.getElementById('tecSelect');
+  if(!ub){
+    tecSel.disabled=true;
+    tecSel.innerHTML='<option value="">— Primero selecciona el Sitio —</option>';
+    return;
+  }
+  tecSel.disabled=false;
+  fillTecSelect();
+}
+
+let currentRol = ''; // 'admin' | 'gestion' | 'tecnico'
+
+async function tryAdminLogin(){
+  const u=document.getElementById('adminUser').value.trim();
+  const p=document.getElementById('adminPass').value;
+  const errEl=document.getElementById('adminErr');
+  const btn=document.getElementById('adminLoginBtn');
+
+  if(!cloudEnabled()){
+    errEl.textContent='⚠ La validación requiere conexión a la nube (configura SHEETS_API_URL).';
+    errEl.style.display='block'; return;
+  }
+
+  if(btn){ btn.disabled=true; btn.textContent='Verificando…'; }
+  errEl.style.display='none';
+
+  try{
+    const res=await fetch(SHEETS_API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({type:'login', user:u, pass:p})
+    });
+    const json=await res.json();
+
+    if(json.success){
+      currentRol=json.rol||'tecnico';
+      document.getElementById('adminUser').value='';
+      document.getElementById('adminPass').value='';
+      mostrarOpcionesPorRol(currentRol);
+    } else {
+      errEl.textContent = json.error || 'Usuario o contraseña incorrectos.';
+      errEl.style.display='block';
+    }
+  }catch(e){
+    errEl.textContent='⚠ No se pudo conectar con el servidor. Intenta de nuevo.';
+    errEl.style.display='block';
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent='Ingresar →'; }
+}
+
+/* Muestra el panel de opciones según el rol autenticado */
+function mostrarOpcionesPorRol(rol){
+  document.getElementById('loginPanel').style.display='none';
+  document.getElementById('optionsPanel').style.display='block';
+  const dc=document.getElementById('dashboardCard');
+  if(dc) dc.style.display='';
+
+  const roles={'admin':'Administrador','gestion':'Gestión','tecnico':'Técnico'};
+  document.getElementById('roleWelcome').textContent=`Bienvenido — Acceso como ${roles[rol]||rol}`;
+
+  const container=document.getElementById('viewOptions');
+  const esAdminOGestion=(rol==='admin'||rol==='gestion');
+
+  let html='';
+  if(esAdminOGestion){
+    html+=`
+      <button class="view-btn" onclick="enterAdminFromRol()">
+        <span class="vb-icon">🛡️</span>
+        <span class="vb-text"><strong>Vista Administrador</strong><span>Acceso Completo</span></span>
+      </button>
+      <div class="divider"><span>o</span></div>`;
+  }
+
+  html+=`
+    <button class="view-btn" onclick="abrirTecPicker()">
+      <span class="vb-icon">👷</span>
+      <span class="vb-text"><strong>Vista Técnico</strong><span>Bandeja Personalizada</span></span>
+    </button>
+    <div class="tec-picker" id="tecPicker">
+      <select id="ubicacionSelect" onchange="onUbicacionChange()">
+        <option value="">— Selecciona el Sitio —</option>
+        <option value="Lima">📍 Lima</option>
+        <option value="Provincia">📍 Provincia</option>
+      </select>
+      <select id="tecSelect" disabled>
+        <option value="">— Primero selecciona el Sitio —</option>
+      </select>
+      <button class="btn btn-primary" onclick="enterTecnico()">Ingresar →</button>
+    </div>
+    <div class="divider"><span>o</span></div>
+    <button class="view-btn" onclick="window.open('historial-orden.html','_blank')">
+      <span class="vb-icon">🕓</span>
+      <span class="vb-text"><strong>Historial de Orden de Trabajo</strong><span>Bitácora Completa</span></span>
+    </button>`;
+
+  container.innerHTML=html;
+  // tecPicker ya está cerrado por defecto (no tiene clase 'open')
+}
+
+function enterAdminFromRol(){
+  enterAdmin();
+}
+
+function abrirTecPicker(){
+  const p=document.getElementById('tecPicker');
+  if(!p) return;
+  const wasOpen=p.classList.contains('open');
+  p.classList.toggle('open');
+  if(!wasOpen){
+    // Reset selects cada vez que se abre
+    document.getElementById('ubicacionSelect').value='';
+    selectedUbicacion='';
+    const tecSel=document.getElementById('tecSelect');
+    tecSel.disabled=true;
+    tecSel.innerHTML='<option value="">— Primero selecciona el Sitio —</option>';
+    if(cloudEnabled()) cloudLoadOrdenes();
+  }
+}
+
+function initTecPicker(){
+  if(cloudEnabled()) cloudLoadOrdenes().then(()=>{
+    document.getElementById('ubicacionSelect').value='';
+    selectedUbicacion='';
+    const tecSel=document.getElementById('tecSelect');
+    tecSel.disabled=true;
+    tecSel.innerHTML='<option value="">— Primero selecciona el Sitio —</option>';
+  });
+}
+
+function cerrarSesion(){
+  currentRol='';
+  document.getElementById('loginPanel').style.display='';
+  document.getElementById('optionsPanel').style.display='none';
+  document.getElementById('viewOptions').innerHTML='';
+  document.getElementById('tecPicker').classList.remove('open');
+  document.getElementById('adminErr').style.display='none';
+  const dc=document.getElementById('dashboardCard');
+  if(dc) dc.style.display='none';
+}
+
+async function enterAdmin(){
+  viewMode='admin'; currentTec='';
+  show('landing',false); show('app',true);
+  show('tabBar',true,'flex'); show('adminToolbar',true,'flex');
+  show('filterBarTabla',true,'flex'); show('filterBarBandeja',false);
+  document.getElementById('viewBadge').textContent='🛡️ Admin';
+  document.getElementById('viewBadge').classList.add('no-click');
+  document.getElementById('headerSub').textContent='Vista Administrador';
+  document.getElementById('headerSub').classList.remove('is-tecnico');
+
+  if(cloudEnabled()){
+    showToast('⏳ Cargando órdenes…');
+    await cloudLoadOrdenes();
+  }
+
+  switchTab('tabla');
+  populateAllFilters(); updateStats();
+  cloudLoadLogs();
+}
+
+/* Construye las opciones del selector de técnico/bandeja para una ubicación dada.
+   Reutilizable tanto por el picker de la portada como por el modal de "cambiar técnico". */
+function buildTecnicoOptionsHTML(ubicacion, currentValue){
+  const tecs=[...new Set(
+      orders
+        .filter(o=>!ubicacion || o['Ubicación']===ubicacion)
+        .map(o=>String(o['Técnico Asignado']||''))
+        .filter(Boolean)
+    )]
+    .filter(t=>t.trim().toLowerCase()!=='otros')
+    .sort((a,b)=>a.localeCompare(b));
+  const pendientesOption = ubicacion==='Provincia'
+    ? `<option value="__gestion__">📥 Bandeja de Gestión (Todas - Provincia)</option>`
+    : ubicacion==='Lima'
+      ? `<option value="__gestion_lima__">📥 Bandeja de Gestión (Todas - Lima)</option>
+         <option value="__pendientes__">📥 Pendientes de Asignación (Otros)</option>`
+      : `<option value="__pendientes__">📥 Pendientes de Asignación (Otros)</option>`;
+  return `<option value="">— Selecciona tu nombre —</option>
+    <option value="__calidad__">✅ Control de Calidad (In Testing)</option>
+    ${pendientesOption}
+    <option disabled>──────────</option>`+
+    tecs.map(t=>`<option value="${esc(t)}"${t===currentValue?' selected':''}>${esc(t)}</option>`).join('');
+}
+
+function fillTecSelect(){
+  const sel=document.getElementById('tecSelect'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML=buildTecnicoOptionsHTML(selectedUbicacion, cur);
+}
+
+async function enterTecnico(){
+  const sel=document.getElementById('tecSelect').value;
+  if(!sel){ showToast('⚠ Selecciona una opción'); return; }
+
+  show('landing',false); show('app',true);
+  show('tabBar',false); show('adminToolbar',false);
+  show('filterBarTabla',false);
+  show('filterBarBandeja',true,'flex');
+  document.getElementById('bjTecSelect').style.display='none';
+  show('vistaTabla',false); show('vistaBandeja',true);
+
+  await switchToSelection(sel);
+}
+
+/* Aplica la selección de técnico/bandeja (__calidad__, __pendientes__, __gestion__, o un nombre)
+   actualizando el estado y refrescando los datos. Reutilizable desde la portada y desde el
+   modal de "cambiar técnico" en el header, sin volver a pasar por la pantalla de selección inicial. */
+async function switchToSelection(sel){
+  document.getElementById('viewBadge').classList.remove('no-click');
+  if(sel==='__calidad__'){
+    viewMode='calidad'; currentTec=''; currentTab='calidad';
+    document.getElementById('viewBadge').textContent='✅ Calidad';
+    document.getElementById('headerSub').textContent='Control de Calidad — In Testing';
+    document.getElementById('headerSub').classList.add('is-tecnico');
+  } else if(sel==='__pendientes__'){
+    viewMode='pendientes'; currentTec=''; currentTab='pendientes';
+    document.getElementById('viewBadge').textContent='📥 Pendientes';
+    document.getElementById('headerSub').textContent='Pendientes de Asignación';
+    document.getElementById('headerSub').classList.add('is-tecnico');
+  } else if(sel==='__gestion__'){
+    viewMode='gestion'; currentTec=''; currentTab='gestion';
+    document.getElementById('viewBadge').textContent='📥 Gestión';
+    document.getElementById('headerSub').textContent='Bandeja de Gestión — Provincia';
+    document.getElementById('headerSub').classList.add('is-tecnico');
+  } else if(sel==='__gestion_lima__'){
+    viewMode='gestion_lima'; currentTec=''; currentTab='gestion_lima';
+    document.getElementById('viewBadge').textContent='📥 Gestión';
+    document.getElementById('headerSub').textContent='Bandeja de Gestión — Lima';
+    document.getElementById('headerSub').classList.add('is-tecnico');
+  } else {
+    viewMode='tecnico'; currentTec=sel; currentTab='bandeja';
+    document.getElementById('viewBadge').textContent='👷 '+sel;
+    document.getElementById('headerSub').textContent='Bandeja de '+sel;
+    document.getElementById('headerSub').classList.add('is-tecnico');
+  }
+
+  if(cloudEnabled()) await cloudLoadOrdenes();
+
+  populateAllFilters(); renderBandeja(); updateStats();
+  await cloudLoadLogs();
+  renderCurrent(); updateStats(); // refresca con los logs ya cargados, para que la alerta sea precisa
+  showPendingAlert();
+}
+
+/* Abre el modal para cambiar de técnico/bandeja sin volver a la portada.
+   Solo disponible cuando NO estamos en Vista Admin (ahí el badge no es clicable). */
+function openSwitchTecnicoModal(){
+  if(viewMode==='admin') return;
+  document.getElementById('switchTecnicoUbicacion').textContent = selectedUbicacion || '—';
+  const sel=document.getElementById('switchTecnicoSelect');
+  const currentValue = viewMode==='tecnico' ? currentTec : '';
+  sel.innerHTML=buildTecnicoOptionsHTML(selectedUbicacion, currentValue);
+  // Preselecciona la opción correspondiente a la bandeja especial actual, si aplica
+  if(viewMode==='calidad') sel.value='__calidad__';
+  else if(viewMode==='pendientes') sel.value='__pendientes__';
+  else if(viewMode==='gestion') sel.value='__gestion__';
+  document.getElementById('switchTecnicoOverlay').classList.add('open');
+}
+
+function closeSwitchTecnicoModal(){
+  document.getElementById('switchTecnicoOverlay').classList.remove('open');
+}
+
+async function confirmSwitchTecnico(){
+  const sel=document.getElementById('switchTecnicoSelect').value;
+  if(!sel){ showToast('⚠ Selecciona una opción'); return; }
+  closeSwitchTecnicoModal();
+  await switchToSelection(sel);
+}
+
+function backToLanding(){
+  show('app',false); show('landing',true,'flex');
+  document.getElementById('tecPicker').classList.remove('open');
+  document.getElementById('adminErr').style.display='none';
+  viewMode='admin'; currentTec='';
+  activeIndicator='';
+  selectedUbicacion='';
+  document.getElementById('ubicacionSelect').value='';
+  const tecSel=document.getElementById('tecSelect');
+  tecSel.disabled=true;
+  tecSel.innerHTML='<option value="">— Primero selecciona el Sitio —</option>';
+  // Vuelve al panel de opciones (el usuario ya está autenticado)
+  if(currentRol){
+    document.getElementById('loginPanel').style.display='none';
+    document.getElementById('optionsPanel').style.display='block';
+  }
+  renderDashboard();
+}
+
+function show(id,visible,displayType='block'){
+  const el=document.getElementById(id);
+  if(el) el.style.display=visible?displayType:'none';
+}
+
+/* ── TABS ── */
+function switchTab(tab){
+  currentTab=tab;
+  const tabs=document.querySelectorAll('.tab');
+  const order=['tabla','bandeja','calidad','pendientes'];
+  tabs.forEach((t,i)=>t.classList.toggle('active', order[i]===tab));
+
+  show('vistaTabla', tab==='tabla');
+  show('vistaBandeja', tab!=='tabla');
+  show('filterBarTabla', tab==='tabla','flex');
+  show('filterBarBandeja', tab!=='tabla','flex');
+
+  // técnico selector visible solo en pestaña "bandeja"
+  document.getElementById('bjTecSelect').style.display = tab==='bandeja' ? '' : 'none';
+
+  if(tab!=='tabla'){ populateAllFilters(); renderBandeja(); }
+  else renderTable();
+}
+function renderCurrent(){ currentTab==='tabla'?renderTable():renderBandeja(); }
+
+/* ── EXCEL ── */
+function loadExcel(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const wb=XLSX.read(ev.target.result,{type:'binary'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+
+    // Antes de reemplazar, guardamos un mapa de prioridades actuales
+    // (Orden del Trabajo → Prioridad) para no perderlas al reimportar.
+    const prioridadesPrevias={};
+    orders.forEach(o=>{
+      if(o['Prioridad']) prioridadesPrevias[String(o['Orden del Trabajo'])]=o['Prioridad'];
+    });
+
+    // Reemplaza la base completa con el Excel del día (más simple y consistente con la nube)
+    orders = rows.map(row=>{
+      const norm={};
+      Object.keys(row).forEach(k=>norm[k.trim()]=row[k]);
+      const id=String(norm['Orden del Trabajo']||Math.random());
+      // Restaura la prioridad si esta orden ya la tenía antes de reimportar
+      if(prioridadesPrevias[id]) norm['Prioridad']=prioridadesPrevias[id];
+      return {...norm,_id:id,_logs:[]};
+    });
+
+    save(); renderCurrent(); updateStats(); populateAllFilters();
+    fillTecSelect();
+    renderDashboard();
+    e.target.value='';
+
+    if(cloudEnabled()){
+      showToast('⏳ Subiendo órdenes a la nube para que todos las vean…');
+      const ok=await cloudSaveOrdenes();
+      showToast(ok ? `✔ ${orders.length} órdenes publicadas para todo el equipo` : '⚠ Se guardó local, pero falló la subida a la nube');
+    } else {
+      showToast(`✔ ${orders.length} órdenes cargadas (solo local)`);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+/* ── RENDER TABLA ── */
+function renderTable(){
+  const q=(document.getElementById('searchInput')||{value:''}).value.toLowerCase();
+  const fE=v('filterEstado'), fT=v('filterTecnico'), fM=v('filterModalidad');
+  const fEsearch=fE.toLowerCase();
+  let rows=orders.filter(o=>{
+    const mQ=!q||COLS.some(c=>String(o[c]||'').toLowerCase().includes(q));
+    return mQ&&(!fE||String(o['Estado']||'').toLowerCase().includes(fEsearch))&&(!fT||o['Técnico Asignado']===fT)&&(!fM||o['Modalidad']===fM);
+  });
+  if(sortCol) rows.sort((a,b)=>{
+    const av=String(a[sortCol]||'').toLowerCase(),bv=String(b[sortCol]||'').toLowerCase();
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+  const tbody=document.getElementById('tableBody');
+  const empty=document.getElementById('emptyTable');
+  if(!rows.length){ tbody.innerHTML=''; empty.style.display='block'; }
+  else{ empty.style.display='none'; tbody.innerHTML=rows.map(rowHTML).join(''); }
+  reapplyButtonLocks();
+  makeTableResizable('adminMainTable');
+}
+
+function rowHTML(o){
+  const logs=getLogsForOrder(o._id);
+  const logsHTML=logs.map(l=>`<div class="log-entry"><div class="log-date">${esc(l.date)}${l.tecnico?' · '+esc(l.tecnico):''}</div><div class="log-text">${esc(l.text)}</div></div>`).join('');
+  const excelLog=o['Actualización Diaria']?`<div class="log-entry"><div class="log-date">Excel</div><div class="log-text">${esc(o['Actualización Diaria'])}</div></div>`:'';
+  const isPriority=!!o['Prioridad'];
+  const flagHTML=`<span class="priority-flag table-flag ${isPriority?'is-active':''} clickable"
+    onclick="togglePrioridad('${escId(o._id)}')" title="${isPriority?'Quitar prioridad':'Marcar como prioritaria'}">🚩</span>`;
+  const nivelGarantia=String(o['Nivel de Garantía']||'').trim();
+  const isP1=nivelGarantia.toLowerCase()==='p1 estándar'||nivelGarantia.toLowerCase()==='p1 estandar';
+  const nivelGarantiaHTML=nivelGarantia
+    ? (isP1?`<span class="nivel-p1">${esc(nivelGarantia)}</span>`:esc(nivelGarantia))
+    : '—';
+  return `<tr style="${isPriority?'box-shadow:0 0 0 2px #dc2626 inset;':''}">
+    <td>${nivelGarantiaHTML}</td><td>${badgeModalidadTabla(o['Modalidad'])}</td><td style="white-space:nowrap;">${formatDesviacion(o['Desviación'])}</td>
+    <td style="font-size:11px">${esc(o['Estado del Repuesto'])||'—'}</td>
+    <td class="mono" style="font-size:11px">${esc(o['MT'])||'—'}</td>
+    <td>${esc(o['Técnico Asignado'])}</td><td>${badgeEstado(o['Estado'])}</td>
+    <td style="white-space:nowrap;">${esc(o['Contacto'])}</td>
+    <td style="font-size:12px">${esc(o['Servicio'])}</td>
+    <td>${badgeADPTabla(o['ADP'])}</td>
+    <td class="mono">${esc(o['Orden del Trabajo'])}</td>
+    <td style="max-width:200px;font-size:11.5px">${esc(o['Descripción del Problema'])}</td>
+    <td class="mono">${esc(o['Serie'])}</td>
+    <td>${esc(o['ECT'])}</td>
+    <td style="text-align:center">${flagHTML}</td>
+    <td class="log-cell">
+      ${excelLog}${logsHTML}
+      <div class="log-form">
+        <input type="text" id="li_${escId(o._id)}" placeholder="Nueva actualización…" onkeydown="if(event.key==='Enter')addLog('${escId(o._id)}',false)">
+        <button id="btnsave_li_${escId(o._id)}" onclick="addLog('${escId(o._id)}',false)" title="Guardar actualización">💾</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+/* ── RENDER BANDEJA (multi-propósito: bandeja técnico/admin, calidad, pendientes) ── */
+function renderBandeja(){
+  let tec=currentTec;
+  if(viewMode==='admin' && currentTab==='bandeja') tec=v('bjTecSelect');
+
+  const fE=v('bjEstado'), fC=v('bjCliente');
+  const fEsearch=fE.toLowerCase(), fCsearch=fC.toLowerCase();
+  let fD=v('bjDesviacion'), fECT=v('bjECT');
+  if(fD==='__sort_desc__'||fD==='__sort_asc__') fD='';
+  if(fECT==='__sort_desc__'||fECT==='__sort_asc__') fECT='';
+  const q=(v('bjSearch')||'').toLowerCase().trim();
+  const qSerie=(v('bjSearchSerie')||'').toLowerCase().trim();
+
+  let rows=orders.filter(o=>{
+    let baseMatch=true;
+    if(currentTab==='calidad'){
+      baseMatch=String(o['Estado']||'').toLowerCase().includes('in testing');
+      // Si se entró desde Vista Técnico con un Sitio elegido, filtrar también por Ubicación
+      if(viewMode==='calidad' && selectedUbicacion){
+        baseMatch=baseMatch && (o['Ubicación']===selectedUbicacion);
+      }
+    } else if(currentTab==='pendientes'){
+      baseMatch=String(o['Técnico Asignado']||'').trim().toLowerCase()==='otros';
+      if(viewMode==='pendientes' && selectedUbicacion){
+        baseMatch=baseMatch && (o['Ubicación']===selectedUbicacion);
+      }
+    } else if(currentTab==='gestion'){
+      // Bandeja de Gestión: TODAS las órdenes de Provincia, sin importar estado ni técnico
+      baseMatch=(o['Ubicación']==='Provincia');
+    } else if(currentTab==='gestion_lima'){
+      // Bandeja de Gestión Lima: TODAS las órdenes de Lima, sin importar estado ni técnico
+      baseMatch=(o['Ubicación']==='Lima');
+    } else {
+      // Para técnicos: excluir "In Testing"
+      const estado=String(o['Estado']||'').toLowerCase();
+      if(viewMode==='tecnico' && estado.includes('in testing')) return false;
+      baseMatch=(!tec||o['Técnico Asignado']===tec);
+    }
+
+    // Búsqueda: acepta texto libre o últimos N dígitos del número de orden
+    const matchQ = !q || (() => {
+      const orden=String(o['Orden del Trabajo']||'');
+      // Match por últimos dígitos
+      if(/^\d+$/.test(q) && orden.endsWith(q)) return true;
+      // Match general en campos clave
+      return ['Orden del Trabajo','Contacto','Descripción del Problema','Serie','Técnico Asignado']
+        .some(col=>String(o[col]||'').toLowerCase().includes(q));
+    })();
+
+    const matchSerie = !qSerie || String(o['Serie']||'').toLowerCase().includes(qSerie);
+
+    // Filtro por indicador clicado (Críticas / Billable / Warranty)
+    const matchIndicator = (() => {
+      if(!activeIndicator) return true;
+      const isInTesting=String(o['Estado']||'').toLowerCase().includes('in testing');
+      if(currentTab!=='calidad' && isInTesting) return false;
+      if(activeIndicator==='critical'){
+        if(o['Prioridad']) return true;
+        const v=parseFloat(String(o['ECT']||'').replace(/[^\d.]/g,''));
+        return !isNaN(v)&&v>=10;
+      }
+      if(activeIndicator==='billable') return String(o['Servicio']||'').toLowerCase().includes('billable');
+      if(activeIndicator==='warranty'){
+        const s=String(o['Servicio']||'').toLowerCase();
+        return s.includes('warranty')||s.includes('garant');
+      }
+      return true;
+    })();
+
+    return baseMatch&&matchQ&&matchSerie&&matchIndicator
+      &&(!fE||String(o['Estado']||'').toLowerCase().includes(fEsearch))
+      &&(!fC||String(o['Contacto']||'').toLowerCase().includes(fCsearch))
+      &&(!fD||String(o['Desviación']||'')===fD)
+      &&(!fECT||String(o['ECT']||'')===fECT);
+  });
+
+  // Sort: ECT o Desviación asc/desc
+  rows.sort((a,b)=>{
+    const field=bjSortField;
+    const av=parseFloat(String(a[field]||'0').replace(/[^\d.-]/g,''))||0;
+    const bv=parseFloat(String(b[field]||'0').replace(/[^\d.-]/g,''))||0;
+    return bjSortDir===-1 ? bv-av : av-bv;
+  });
+
+  const grid=document.getElementById('bandejaGrid');
+  const tableWrap=document.getElementById('bandejaTableWrap');
+  const tableBody=document.getElementById('bandejaTableBody');
+  const empty=document.getElementById('emptyBandeja');
+  const countEl=document.getElementById('bandejaCount');
+  if(countEl) countEl.textContent=rows.length?`${rows.length} orden(es)`:'';
+
+  if(!rows.length){
+    grid.innerHTML=''; grid.style.display='none';
+    tableWrap.style.display='none';
+    empty.style.display='block'; return;
+  }
+  empty.style.display='none';
+
+  if(bandejaViewMode==='table'){
+    grid.style.display='none';
+    tableWrap.style.display='block';
+    const showTecnicoCol = (viewMode==='tecnico'||viewMode==='gestion'||viewMode==='gestion_lima'||viewMode==='calidad'||viewMode==='pendientes');
+    const thTecnico=document.querySelector('#bandejaTableHeadRow .th-tecnico');
+    if(thTecnico) thTecnico.style.display = showTecnicoCol ? '' : 'none';
+    tableBody.innerHTML=rows.map(rowBandejaHTML).join('');
+    makeTableResizable('bandejaMainTable');
+  } else {
+    tableWrap.style.display='none';
+    grid.style.display='flex';
+    grid.innerHTML=rows.map(ticketHTML).join('');
+  }
+  reapplyButtonLocks();
+  // Mostrar botón de alerta solo en Bandejas de Gestión (Lima y Provincia)
+  const btnAlerta=document.getElementById('btnAlertaCorreo');
+  if(btnAlerta){
+    btnAlerta.style.display=(viewMode==='gestion')?'':'none';
+  }
+}
+function rowBandejaHTML(o){
+  const logs=getLogsForOrder(o._id);
+  const excelLog=o['Actualización Diaria']?`<div class="log-entry"><div class="log-date">Excel</div><div class="log-text">${esc(o['Actualización Diaria'])}</div></div>`:'';
+
+  // Todas las entradas en orden (Excel primero si existe, luego logs)
+  const allEntries=[];
+  if(o['Actualización Diaria']) allEntries.push({isExcel:true, html:excelLog});
+  logs.forEach(l=>allEntries.push({isExcel:false, html:`<div class="log-entry"><div class="log-date">${esc(l.date)}${l.tecnico?' · '+esc(l.tecnico):''}</div><div class="log-text">${esc(l.text)}</div></div>`}));
+
+  let logsBlockHTML;
+  if(allEntries.length<=1){
+    logsBlockHTML = allEntries.length ? allEntries[0].html : '<p style="font-size:11px;color:var(--muted2)">Sin notas</p>';
+  } else {
+    const last=allEntries[allEntries.length-1];
+    const rest=allEntries.slice(0,-1).map(e=>e.html).join('');
+    const rowId='logexp_'+escId(o._id);
+    logsBlockHTML = `
+      ${last.html}
+      <div id="${rowId}" style="display:none">${rest}</div>
+      <button type="button" class="log-expand-btn" onclick="toggleLogExpand('${rowId}', this)" title="Mostrar el historial completo de notas de esta orden">▼ Ver ${allEntries.length-1} más</button>
+    `;
+  }
+
+  const ectVal=parseFloat(String(o['ECT']||'').replace(/[^\d.]/g,''));
+  const ectCls=isNaN(ectVal)?'ect-none':ectVal>=10?'ect-high':'ect-low';
+  const isFalabella=String(o['Contacto']||'').toUpperCase().includes('FALABELLA');
+  const isPriority=!!o['Prioridad'];
+  const flagClickable=viewMode==='admin';
+  const flagHTML=`<span class="priority-flag table-flag ${isPriority?'is-active':''} ${flagClickable?'clickable':'readonly'}"
+    ${flagClickable?`onclick="togglePrioridad('${escId(o._id)}')" title="${isPriority?'Quitar prioridad':'Marcar como prioritaria'}"`:`title="${isPriority?'Orden marcada como prioritaria':''}"`}>🚩</span>`;
+  const rowBg = isPriority ? 'box-shadow:0 0 0 2px #dc2626 inset;' : (isFalabella?'background:#ccff44;':'');
+
+  const nivelGarantia=String(o['Nivel de Garantía']||'').trim();
+  const isP1=nivelGarantia.toLowerCase()==='p1 estándar'||nivelGarantia.toLowerCase()==='p1 estandar';
+  const nivelGarantiaHTML=nivelGarantia
+    ? (isP1?`<span class="nivel-p1">${esc(nivelGarantia)}</span>`:esc(nivelGarantia))
+    : '—';
+
+  return `<tr style="${rowBg}" >
+    <td class="mono" style="font-size:13px;font-weight:700">${esc(o['Orden del Trabajo'])}</td>
+    <td>${badgeEstado(o['Estado'])}</td>
+    <td style="white-space:nowrap;">${esc(o['Contacto'])}</td>
+    <td style="font-size:12px">${esc(o['Servicio'])}</td>
+    <td class="bj-desc-cell" title="${esc(o['Descripción del Problema'])}">${esc(o['Descripción del Problema'])}</td>
+    <td>${nivelGarantiaHTML}</td>
+    <td>${badgeModalidadTabla(o['Modalidad'])}</td>
+    <td class="mono">${esc(o['Serie'])}</td>
+    <td style="text-align:center">
+      <span class="ect-badge ${ectCls}" style="font-size:11px;padding:3px 7px;min-width:0">${esc(o['ECT'])||'—'}</span>
+    </td>
+    <td style="text-align:center">${flagHTML}</td>
+    <td>${badgeADPTabla(o['ADP'])}</td>
+    <td style="font-size:12px;white-space:nowrap;">${formatDesviacion(o['Desviación'])}</td>
+    <td style="font-size:11px">${esc(o['Estado del Repuesto'])||'—'}</td>
+    <td class="mono" style="font-size:11px">${esc(o['MT'])||'—'}</td>
+    ${(viewMode==='tecnico'||viewMode==='gestion'||viewMode==='gestion_lima'||viewMode==='calidad'||viewMode==='pendientes')?`<td style="font-size:12px">${esc(o['Técnico Asignado'])||'—'}</td>`:''}
+    <td class="log-cell">
+      ${logsBlockHTML}
+      <div class="log-form">
+        <input type="text" id="bt_${escId(o._id)}" placeholder="Actualización…" onkeydown="if(event.key==='Enter')addLogById('${escId(o._id)}','bt_')">
+        <button id="btnsave_bt_${escId(o._id)}" onclick="addLogById('${escId(o._id)}','bt_')" title="Guardar actualización">💾</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+/* Expande/colapsa el historial completo de notas en la vista tabla */
+function toggleLogExpand(rowId, btn){
+  const el=document.getElementById(rowId);
+  if(!el) return;
+  const expanded = el.style.display !== 'none';
+  el.style.display = expanded ? 'none' : 'block';
+  if(btn){
+    const count = btn.textContent.match(/\d+/);
+    btn.textContent = expanded ? `▼ Ver ${count?count[0]:''} más` : `▲ Ocultar historial`;
+  }
+}
+
+/* Toggle vista tarjeta / tabla */
+function setViewMode(mode){
+  bandejaViewMode=mode;
+  document.getElementById('btnViewTicket').classList.toggle('active', mode==='ticket');
+  document.getElementById('btnViewTable').classList.toggle('active', mode==='table');
+  renderBandeja();
+}
+
+function ticketHTML(o){
+  const excelLog=o['Actualización Diaria']?`<div class="log-entry"><div class="log-date">Excel</div><div class="log-text">${esc(o['Actualización Diaria'])}</div></div>`:'';
+  const logs=getLogsForOrder(o._id);
+  const logsHTML=logs.map(l=>`<div class="log-entry"><div class="log-date">${esc(l.date)}${l.tecnico?' · '+esc(l.tecnico):''}</div><div class="log-text">${esc(l.text)}</div></div>`).join('');
+
+  const ectVal=parseFloat(String(o['ECT']||'').replace(/[^\d.]/g,''));
+  const ectCls=isNaN(ectVal)?'ect-none':ectVal>=10?'ect-high':'ect-low';
+  const ectHTML=o['ECT']
+    ?`<div class="ect-badge ${ectCls}">⏱ ECT<br><span style="font-size:15px">${esc(o['ECT'])}</span></div>`
+    :`<div class="ect-badge ect-none">—</div>`;
+
+  const isFalabella=String(o['Contacto']||'').toUpperCase().includes('FALABELLA');
+  const isPriority=!!o['Prioridad'];
+  const cls='ticket'+(isFalabella?' ticket-falabella':'')+(isPriority?' ticket-priority':'');
+  const descFull=String(o['Descripción del Problema']||'');
+  const desvAbrevHTML=formatDesviacionAbrev(o['Desviación']);
+
+  // Nivel de Garantía: resaltado fucsia intenso cuando es "P1 Estándar"
+  const nivelGarantia=String(o['Nivel de Garantía']||'').trim();
+  const isP1=nivelGarantia.toLowerCase()==='p1 estándar'||nivelGarantia.toLowerCase()==='p1 estandar';
+  const nivelGarantiaHTML = nivelGarantia
+    ? `<div class="ticket-field${isP1?' nivel-p1':''}"><strong>${esc(nivelGarantia)}</strong></div>`
+    : '';
+
+  // Bandera de prioridad: clicable solo en Vista Admin.
+  // En Vista Técnico (readonly), solo se muestra si la orden SÍ está marcada — si no, no aparece nada.
+  const flagClickable = viewMode==='admin';
+  const showFlag = flagClickable || isPriority;
+  const flagHTML = showFlag ? `
+    <div class="priority-flag ${isPriority?'is-active':''} ${flagClickable?'clickable':'readonly'}"
+         ${flagClickable?`onclick="togglePrioridad('${escId(o._id)}')" title="${isPriority?'Quitar prioridad':'Marcar como prioritaria'}"`:`title="Orden marcada como prioritaria"`}>
+      🚩
+    </div>` : '';
+
+  // Nombre del técnico asignado, esquina inferior derecha (solo en Vista Técnico/Calidad/Pendientes/Gestión)
+  // Se muestra en dos líneas: nombre arriba, apellido(s) abajo — sin prefijo.
+  const tecnicoHTML = (viewMode==='tecnico'||viewMode==='gestion'||viewMode==='gestion_lima'||viewMode==='calidad'||viewMode==='pendientes')
+    ? (()=>{
+        const nombreCompleto=String(o['Técnico Asignado']||'').trim();
+        if(!nombreCompleto) return `<div class="ticket-tecnico-corner">Sin asignar</div>`;
+        const partes=nombreCompleto.split(/\s+/);
+        const primeraLinea=partes[0]||'';
+        const segundaLinea=partes.slice(1).join(' ');
+        return `<div class="ticket-tecnico-corner">${esc(primeraLinea)}${segundaLinea?`<br>${esc(segundaLinea)}`:''}</div>`;
+      })()
+    : '';
+
+  return `<div class="${cls}">
+    <!-- izquierda -->
+    <div class="ticket-left">
+      <span class="ticket-num"># ${esc(o['Orden del Trabajo'])}</span>
+      <div class="ticket-estado">${badgeEstado(o['Estado'])}</div>
+      <div>${badgeADP(o['ADP'])}</div>
+      ${nivelGarantiaHTML}
+      <div>${badgeModalidad(o['Modalidad'])}</div>
+      ${o['Serie']?`<div class="ticket-field">S/N: <strong style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${esc(o['Serie'])}</strong></div>`:''}
+    </div>
+    <!-- centro: descripción, línea, contacto/meta, bitácora — todo en una sola columna -->
+    <div class="ticket-center">
+      <div class="ticket-desc" title="${esc(descFull)}">${esc(descFull)||'(Sin descripción)'}</div>
+      <div class="ticket-divider-full"></div>
+      <div class="ticket-meta">
+        <div class="ticket-meta-row">👤 <strong>${esc(o['Contacto'])}</strong></div>
+        ${o['Servicio']?`<div class="ticket-meta-row">💻 <strong>${esc(o['Servicio'])}</strong></div>`:''}
+        ${o['Estado del Repuesto']?`<div class="ticket-meta-row">📦 <strong>${esc(o['Estado del Repuesto'])}</strong></div>`:''}
+        ${o['MT']?`<div class="ticket-meta-row">MT: <strong style="font-family:'JetBrains Mono',monospace">${esc(o['MT'])}</strong></div>`:''}
+      </div>
+      <div class="ticket-logs">
+        ${excelLog||logsHTML?excelLog+logsHTML:'<p style="font-size:11.5px;color:var(--muted2)">Sin actualizaciones aún.</p>'}
+        <div class="ticket-log-form">
+          <input type="text" id="tli_${escId(o._id)}" placeholder="Agregar actualización de hoy…"
+                 onkeydown="if(event.key==='Enter')addLog('${escId(o._id)}',true)">
+          <button id="btnsave_tli_${escId(o._id)}" onclick="addLog('${escId(o._id)}',true)" title="Guardar actualización">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+    <!-- ECT + Desviación arriba, técnico al fondo (alineado con el botón Guardar) -->
+    <div class="ticket-right" style="flex-direction:column;gap:6px;align-items:center;align-self:stretch;">
+      ${ectHTML}
+      ${desvAbrevHTML?`<div class="ticket-desv-abrev">Desv: ${desvAbrevHTML}</div>`:''}
+      ${tecnicoHTML?`<div style="align-self:flex-end;margin-top:auto;padding-bottom:6px;">${tecnicoHTML}</div>`:''}
+    </div>
+    <!-- columna propia para la bandera -->
+    <div class="ticket-flag-col">
+      ${flagHTML}
+    </div>
+  </div>`;
+}
+
+/* ── ADD LOG ── */
+/* Bloquea un botón por N ms para evitar doble clic / registros duplicados.
+   Usa un set global porque el botón se vuelve a renderizar (renderCurrent) tras guardar. */
+function lockButton(btnId, ms=5000){
+  lockedButtons.add(btnId);
+  applyButtonLockState(btnId);
+  setTimeout(()=>{
+    lockedButtons.delete(btnId);
+    applyButtonLockState(btnId);
+  }, ms);
+}
+function applyButtonLockState(btnId){
+  const btn=document.getElementById(btnId);
+  if(!btn) return;
+  const locked=lockedButtons.has(btnId);
+  btn.disabled=locked;
+  btn.style.opacity=locked?'0.5':'';
+  btn.style.cursor=locked?'not-allowed':'';
+}
+/* Llamar después de cualquier render para re-aplicar el estado de bloqueo a botones existentes */
+function reapplyButtonLocks(){
+  lockedButtons.forEach(id=>applyButtonLockState(id));
+}
+
+function addLogById(rawId, prefix='tli_'){
+  const id=decId(rawId);
+  const el=document.getElementById(prefix+rawId);
+  const text=el?el.value.trim():''; if(!text) return;
+  const order=orders.find(o=>o._id===id); if(!order) return;
+
+  const btnId='btnsave_'+prefix+rawId;
+  const btn=document.getElementById(btnId);
+  if(btn && btn.disabled) return; // ya está bloqueado, evita doble envío
+  lockButton(btnId);
+
+  const today=new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+  order._logs=order._logs||[];
+  order._logs.push({date:today,text});
+  save(); renderCurrent(); updateStats();
+  cloudSaveLog({
+    orden:order['Orden del Trabajo'],
+    tecnico:viewMode==='tecnico'?currentTec:(order['Técnico Asignado']||'Admin'),
+    cliente:order['Contacto'], nota:text,
+    origen:viewMode==='admin'?'Admin':'Técnico'
+  }).then(ok=>ok&&cloudLoadLogs());
+  showToast('✔ Actualización guardada');
+}
+
+async function addLog(rawId,isBandeja){
+  const id=decId(rawId);
+  const prefix=isBandeja?'tli_':'li_';
+  const el=document.getElementById(prefix+rawId);
+  const text=el?el.value.trim():''; if(!text) return;
+  const order=orders.find(o=>o._id===id); if(!order) return;
+
+  const btnId='btnsave_'+prefix+rawId;
+  const btn=document.getElementById(btnId);
+  if(btn && btn.disabled) return; // ya bloqueado, evita doble envío
+  lockButton(btnId);
+
+  const today=new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Siempre guardamos local como respaldo inmediato
+  order._logs=order._logs||[];
+  order._logs.push({date:today,text});
+  save();
+
+  if(cloudEnabled()){
+    showToast('⏳ Guardando en la bitácora de auditoría…');
+    const tecnicoNombre = viewMode==='tecnico' ? currentTec : (order['Técnico Asignado']||'Admin');
+    const ok = await cloudSaveLog({
+      orden: order['Orden del Trabajo'],
+      tecnico: tecnicoNombre,
+      cliente: order['Contacto'],
+      nota: text,
+      origen: viewMode==='admin' ? 'Admin' : 'Técnico'
+    });
+    if(ok){
+      await cloudLoadLogs();
+      showToast('✔ Guardado en la bitácora de auditoría');
+    } else {
+      showToast('⚠ Guardado solo localmente (sin conexión a la nube)');
+    }
+  } else {
+    showToast('✔ Actualización guardada (local)');
+  }
+
+  if(el) el.value='';
+  renderCurrent(); updateStats();
+}
+
+/* ── SORT (tabla) ── */
+function sortBy(col){
+  sortCol=sortCol===col?(sortDir*=-1,col):(sortDir=1,col);
+  document.querySelectorAll('thead th').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    if(th.getAttribute('onclick')===`sortBy('${col}')`)
+      th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+  });
+  renderTable();
+}
+
+/* ── SORT (bandeja: ECT / Desviación, vía selects) ── */
+function sortBandejaBy(field, dir){
+  bjSortField=field; bjSortDir=dir;
+  renderBandeja();
+}
+
+/* ── FILTERS ── */
+function populateAllFilters(){
+  fillDatalist('filterEstado','filterEstadoList','Estado');
+  fillSelect('filterTecnico','Técnico Asignado','Técnico: Todos');
+  fillSelect('filterModalidad','Modalidad','Modalidad: Todas');
+  fillSelect('bjTecSelect','Técnico Asignado','— Todos los técnicos —');
+  fillDatalist('bjEstado','bjEstadoList','Estado');
+  fillDatalist('bjCliente','bjClienteList','Contacto');
+  fillBjSortableSelect('bjDesviacion','Desviación');
+  fillBjSortableSelect('bjECT','ECT');
+}
+
+function fillSelect(id,key,placeholder){
+  const sel=document.getElementById(id); if(!sel) return;
+  const cur=sel.value;
+  const vals=[...new Set(orders.map(o=>String(o[key]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML=`<option value="">${placeholder}</option>`+
+    vals.map(val=>`<option value="${esc(val)}"${val===cur?' selected':''}>${esc(val)}</option>`).join('');
+}
+
+/* Llena un <datalist> con los valores únicos de una columna, para usarse junto
+   a un <input> de texto libre — permite escribir y filtrar dinámicamente
+   (tipo buscador), en lugar de un select cerrado. */
+function fillDatalist(inputId,datalistId,key){
+  const datalist=document.getElementById(datalistId); if(!datalist) return;
+  const vals=[...new Set(orders.map(o=>String(o[key]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  datalist.innerHTML=vals.map(val=>`<option value="${esc(val)}"></option>`).join('');
+}
+
+/* selects para ECT / Desviación: incluyen opciones de orden asc/desc además del filtro por valor */
+function fillBjSortableSelect(id,key){
+  const sel=document.getElementById(id); if(!sel) return;
+  const cur=sel.value;
+  const vals=[...new Set(orders.map(o=>String(o[key]||'')).filter(Boolean))].sort((a,b)=>{
+    const na=parseFloat(a)||0, nb=parseFloat(b)||0; return nb-na;
+  });
+  const sortOptsHTML=`
+    <option value="__sort_desc__">↓ Ordenar ${key}: Mayor a menor</option>
+    <option value="__sort_asc__">↑ Ordenar ${key}: Menor a mayor</option>
+    <option disabled>──────────</option>`;
+  sel.innerHTML=`<option value="">${key} ↕: Todos</option>`+sortOptsHTML+
+    vals.map(val=>`<option value="${esc(val)}"${val===cur?' selected':''}>${esc(val)}</option>`).join('');
+
+  sel.onchange=()=>{
+    const sv=sel.value;
+    if(sv==='__sort_desc__'){ sortBandejaBy(key,-1); sel.value=''; return; }
+    if(sv==='__sort_asc__'){ sortBandejaBy(key,1); sel.value=''; return; }
+    renderBandeja();
+  };
+}
+
+/* Calcula el conjunto de órdenes ("src") correspondiente a la vista actual,
+   junto con el filtro de "In Testing" que aplica según esa vista.
+   Reutilizable por updateStats y por el modal de alerta de Pend. Estado. */
+/* Muestra un modal con las órdenes sin actualizar hoy, al entrar a cualquier bandeja */
+function showPendingAlert(){
+  const {src, passTestingFilter} = getStatsSourceForCurrentView();
+  const pendingOrders = getPendingEstadoOrders(src, passTestingFilter);
+
+  if(!pendingOrders.length) return; // nada que mostrar, no se abre el modal
+
+  const summaryEl=document.getElementById('pendingAlertSummary');
+  const listEl=document.getElementById('pendingAlertList');
+
+  summaryEl.textContent = pendingOrders.length===1
+    ? 'Hay 1 orden que no ha sido actualizada el día de hoy:'
+    : `Hay ${pendingOrders.length} órdenes que no han sido actualizadas el día de hoy:`;
+
+  listEl.innerHTML = `
+    <table class="pending-alert-table">
+      <thead><tr>
+        <th>Orden</th><th>Serie</th><th>Nivel Garantía</th><th>ECT</th><th>MT</th><th>Contacto</th>
+      </tr></thead>
+      <tbody>
+        ${pendingOrders.map(o=>`
+          <tr>
+            <td class="pa-orden">#${esc(o['Orden del Trabajo'])}</td>
+            <td>${esc(o['Serie'])||'—'}</td>
+            <td>${esc(o['Nivel de Garantía'])||'—'}</td>
+            <td>${esc(o['ECT'])||'—'}</td>
+            <td>${esc(o['MT'])||'—'}</td>
+            <td>${esc(o['Contacto'])||'—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  document.getElementById('pendingAlertOverlay').classList.add('open');
+}
+
+function closePendingAlert(){
+  document.getElementById('pendingAlertOverlay').classList.remove('open');
+}
+
+/* ── ALERTA DE CASOS CRÍTICOS POR CORREO ──
+   Solo visible en Bandejas de Gestión (Lima y Provincia).
+   Genera un mailto con dos tablas HTML en el cuerpo:
+   una para Billable y otra para Warranty.
+
+   CONDICIONALES para entrar a la tabla:
+   1. Desviación = "No se solicitó repuesto" Y ECT >= 3
+   2. Desviación numérica >= 3 días
+
+   EXCEPCIONES Billable: quedan FUERA si el Estado es
+   "Billable Hold", "Customer Hold" o "Order Released". */
+/* Estado compartido entre las funciones del modal de alerta */
+let _alertaBillables=[], _alertaWarranties=[], _alertaUbicacion='', _alertaHoy='';
+let _alertaTablaHTML='', _alertaTablaPlain='', _alertaAsunto='', _alertaPara='', _alertaCC='';
+
+function enviarAlertaCorreo(){
+  const ubicacion = viewMode==='gestion' ? 'Provincia' : 'Lima';
+  const src = orders.filter(o=>!isClosed(o) && o['Ubicación']===ubicacion);
+  // Estados excluidos para TODOS los servicios (Billable y Warranty)
+  const ESTADOS_EXCLUIDOS_TODOS=['billable hold','parts on hold','customer hold','parts requested','parts in transit','pick - pack'];
+  // Estados excluidos solo para Billable
+  const ESTADOS_EXCLUIDOS_SOLO_BILLABLE=['order released'];
+  const hoy=new Date().toLocaleDateString('es-PE');
+
+  function esCritico(o){
+    const desv=String(o['Desviación']||'').trim();
+    const ect=parseFloat(String(o['ECT']||'').replace(/[^\d.]/g,''));
+    const esBillable=String(o['Servicio']||'').toLowerCase().includes('billable');
+    const estado=String(o['Estado']||'').toLowerCase().trim();
+    // Excluir si el estado aplica para todos
+    if(ESTADOS_EXCLUIDOS_TODOS.includes(estado)) return false;
+    // Excluir si es Billable y el estado aplica solo para Billable
+    if(esBillable && ESTADOS_EXCLUIDOS_SOLO_BILLABLE.includes(estado)) return false;
+    // Condición 1: NSR y ECT >= 3
+    if(desv.toLowerCase().includes('no se solicit') && !isNaN(ect) && ect>=3) return true;
+    // Condición 2: Desviación numérica >= 3
+    const desvNum=parseFloat(desv);
+    if(!isNaN(desvNum) && desvNum>=3) return true;
+    return false;
+  }
+
+  const criticos=src.filter(esCritico);
+  const billables=criticos.filter(o=>String(o['Servicio']||'').toLowerCase().includes('billable'));
+  const warranties=criticos.filter(o=>!String(o['Servicio']||'').toLowerCase().includes('billable'));
+
+  if(!criticos.length){ showToast('✅ No hay casos críticos en esta bandeja'); return; }
+
+  // Guardar estado para que los botones del modal puedan acceder
+  _alertaBillables=billables;
+  _alertaWarranties=warranties;
+  _alertaUbicacion=ubicacion;
+  _alertaHoy=hoy;
+  _alertaPara='caslenovo@smartprint.pe';
+  _alertaCC='gestionlenovo.rpe@ricoh-la.com';
+  _alertaAsunto=ubicacion==='Provincia'
+    ? 'Seguimiento y Prioridad de Órdenes críticas de Provincia // SMARTPRINT'
+    : 'Seguimiento y Prioridad de Órdenes críticas de Lima // SMARTPRINT';
+
+  // Construir tabla HTML (para portapapeles)
+  _alertaTablaHTML=construirTablaHTML(billables, warranties, ubicacion);
+
+  // Construir cuerpo texto plano (fallback)
+  const COLS_LABEL=['ORDEN','SERIE','NIVEL GAR.','ESTADO','ECT','DESV.','MT','MODALIDAD','CIUDAD','CONTACTO'];
+  const COLS_TABLA_P=['Orden del Trabajo','Serie','Nivel de Garantía','Estado','ECT','Desviación','MT','Modalidad','Técnico Asignado','Contacto'];
+  function filaPlain(o){ return COLS_TABLA_P.map(c=>String(o[c]||'—')).join(' | '); }
+  const sep='─'.repeat(80);
+  let plain=`Hola, equipo SMARTPRINT. Muy buen día:\n\n`;
+  plain+=`Espero que se encuentren bien y que estén teniendo un excelente día.\n\n`;
+  plain+=`A continuación, les comparto una tabla con nuestras órdenes críticas, a las cuales venimos realizando un seguimiento diario junto con el equipo de ${ubicacion}.\n\n`;
+  plain+=`Agradeceremos mucho su apoyo para brindar prioridad y pronta atención a estos casos, con la finalidad de agilizar las gestiones pendientes, ya sea mediante la solicitud de repuestos, el envío al siguiente proceso, la atención técnica correspondiente o el escalamiento oportuno, según corresponda.\n\n`;
+  plain+=`El objetivo es poder resolver y cerrar estas órdenes a la mayor brevedad posible, evitando que continúen incrementando su tiempo de atención.\n\n`;
+  if(billables.length){
+    plain+=`CASOS BILLABLE CRÍTICOS (${billables.length})\n${sep}\n${COLS_LABEL.join(' | ')}\n${sep}\n`;
+    plain+=billables.map(filaPlain).join('\n')+'\n\n';
+  }
+  if(warranties.length){
+    plain+=`CASOS WARRANTY CRÍTICOS (${warranties.length})\n${sep}\n${COLS_LABEL.join(' | ')}\n${sep}\n`;
+    plain+=warranties.map(filaPlain).join('\n')+'\n\n';
+  }
+  plain+=`Quedamos atentos a una pronta actualización del estado de cada caso y a las acciones que se vienen realizando para lograr su cierre. Asimismo, si requieren alguna gestión o apoyo adicional de nuestra parte, por favor háganoslo saber para atenderlo oportunamente.\n\n`;
+  plain+=`Desde ya, agradecemos mucho su compromiso y apoyo con la atención de estos casos críticos.`;
+  _alertaTablaPlain=plain;
+
+  // Mostrar resumen en el modal
+  const resumen=document.getElementById('alertaCorreoResumen');
+  if(resumen){
+    resumen.innerHTML=`
+      <strong>Bandeja:</strong> Gestión ${ubicacion}<br>
+      <strong>Fecha:</strong> ${hoy}<br>
+      <strong>Críticos Billable:</strong> ${billables.length} orden(es)<br>
+      <strong>Críticos Warranty:</strong> ${warranties.length} orden(es)<br>
+      <strong>Total:</strong> ${criticos.length} orden(es)`;
+  }
+
+  document.getElementById('alertaCorreoOverlay').classList.add('open');
+}
+
+function cerrarAlertaCorreoModal(){
+  document.getElementById('alertaCorreoOverlay').classList.remove('open');
+}
+
+/* Botón único: copia el cuerpo HTML al portapapeles Y abre el cliente de correo */
+async function alertaAbrirCorreoYCopiar(){
+  const btn=document.getElementById('btnAbrirCorreo');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Preparando…'; }
+
+  // Primero copiar el cuerpo HTML al portapapeles
+  try{
+    const blob=new Blob([_alertaTablaHTML],{type:'text/html'});
+    const blobPlain=new Blob([_alertaTablaPlain],{type:'text/plain'});
+    await navigator.clipboard.write([
+      new ClipboardItem({'text/html':blob,'text/plain':blobPlain})
+    ]);
+  }catch(e){
+    // Si falla el portapapeles, igual abrir el correo
+    console.warn('Clipboard write failed:',e);
+  }
+
+  // Luego abrir el cliente de correo (clic dentro de async sigue siendo "clic del usuario")
+  const url=`mailto:${encodeURIComponent(_alertaPara)}?cc=${encodeURIComponent(_alertaCC)}&subject=${encodeURIComponent(_alertaAsunto)}`;
+  window.open(url,'_self');
+
+  if(btn){ btn.disabled=false; btn.innerHTML='✉️ Abrir correo y copiar cuerpo al portapapeles'; }
+  showToast('✅ Correo abierto — pega con Ctrl+V en el cuerpo');
+}
+
+/* Botón 2 — Copiar tabla HTML al portapapeles */
+function alertaCopiarTabla(){
+  const blob=new Blob([_alertaTablaHTML],{type:'text/html'});
+  const clipItem=new ClipboardItem({'text/html':blob});
+  navigator.clipboard.write([clipItem]).then(()=>{
+    showToast('📋 Tabla copiada — pega con Ctrl+V en el cuerpo del correo (Outlook/Gmail)');
+  }).catch(()=>{
+    showToast('⚠ El navegador bloqueó el portapapeles. Usa el Excel como alternativa.');
+  });
+}
+
+/* Botón 3 — Descargar Excel (clic directo = siempre funciona) */
+function alertaDescargarExcel(){
+  exportarCriticosExcel(_alertaBillables, _alertaWarranties, _alertaUbicacion, _alertaHoy);
+  showToast('📥 Excel descargado — adjúntalo al correo');
+}
+
+/* Construye el HTML de ambas tablas para el portapapeles */
+function construirTablaHTML(billables, warranties, ubicacion){
+  const COLS_TABLA=['Orden del Trabajo','Serie','Nivel de Garantía','Estado','ECT','Desviación','MT','Modalidad','Técnico Asignado','Contacto'];
+  const COLS_LABEL=['ORDEN DE TRABAJO','SERIE','NIVEL DE GARANTÍA','ESTADO','ECT','DESVIACIÓN','MT','MODALIDAD','CIUDAD','CONTACTO'];
+  const estiloTh='background:#1e3a5f;color:#fff;padding:7px 10px;border:1px solid #ccc;text-align:left;white-space:nowrap;font-family:Aptos,Arial,sans-serif;font-size:12pt;';
+  const estiloTd='padding:6px 10px;border:1px solid #ddd;vertical-align:top;font-family:Aptos,Arial,sans-serif;font-size:12pt;';
+
+  function htmlTabla(filas, titulo, color){
+    if(!filas.length) return '';
+    let t=`<p style="font-weight:700;color:${color};font-size:14px;margin:20px 0 6px;">${titulo} — ${filas.length} orden(es)</p>`;
+    t+=`<table style="${estiloTabla}"><thead><tr>`;
+    COLS_LABEL.forEach(h=>{ t+=`<th style="${estiloTh}">${h}</th>`; });
+    t+=`</tr></thead><tbody>`;
+    filas.forEach((o,i)=>{
+      const bg=i%2===0?'background:#fff;':'background:#f0f4f8;';
+      t+=`<tr style="${bg}">`;
+      COLS_TABLA.forEach(c=>{ t+=`<td style="${estiloTd}">${esc(o[c]||'—')}</td>`; });
+      t+=`</tr>`;
+    });
+    t+=`</tbody></table>`;
+    return t;
+  }
+
+  const tablasBillWarr=
+    htmlTabla(billables,'📋 CASOS BILLABLE CRÍTICOS','#b45309')+
+    htmlTabla(warranties,'📋 CASOS WARRANTY CRÍTICOS','#1e3a5f');
+
+  return `<div style="font-family:Aptos,Arial,sans-serif;font-size:12pt;color:#111;line-height:1.7;">
+<p>Hola, equipo SMARTPRINT. Muy buen día:</p>
+<p>Espero que se encuentren bien y que estén teniendo un excelente día.</p>
+<p>A continuación, les comparto una tabla con nuestras órdenes críticas, a las cuales venimos realizando un seguimiento diario junto con el equipo de ${ubicacion}.</p>
+<p>Agradeceremos mucho su apoyo para brindar prioridad y pronta atención a estos casos, con la finalidad de agilizar las gestiones pendientes, ya sea mediante la solicitud de repuestos, el envío al siguiente proceso, la atención técnica correspondiente o el escalamiento oportuno, según corresponda.</p>
+<p>El objetivo es poder resolver y cerrar estas órdenes a la mayor brevedad posible, evitando que continúen incrementando su tiempo de atención.</p>
+${tablasBillWarr}
+<p>Quedamos atentos a una pronta actualización del estado de cada caso y a las acciones que se vienen realizando para lograr su cierre. Asimismo, si requieren alguna gestión o apoyo adicional de nuestra parte, por favor háganoslo saber para atenderlo oportunamente.</p>
+<p>Desde ya, agradecemos mucho su compromiso y apoyo con la atención de estos casos críticos.</p>
+</div>`;
+}
+
+/* Exporta un .xlsx con dos hojas: Billable y Warranty */
+function exportarCriticosExcel(billables, warranties, ubicacion, hoy){
+  const COLS_LABEL=['ORDEN DE TRABAJO','SERIE','NIVEL DE GARANTÍA','ESTADO','ECT','DESVIACIÓN','MT','MODALIDAD','CIUDAD','CONTACTO'];
+  const COLS_TABLA=['Orden del Trabajo','Serie','Nivel de Garantía','Estado','ECT','Desviación','MT','Modalidad','Técnico Asignado','Contacto'];
+
+  function hojaCsv(filas){
+    const sep='\t';
+    let csv=COLS_LABEL.join(sep)+'\n';
+    filas.forEach(o=>{
+      csv+=COLS_TABLA.map(c=>String(o[c]||'').replace(/\t/g,' ')).join(sep)+'\n';
+    });
+    return csv;
+  }
+
+  // Generamos un archivo .xls (formato HTML-table que Excel abre correctamente)
+  const estiloTh='background:#1e3a5f;color:white;font-weight:bold;padding:6px;border:1px solid #ccc;font-family:Aptos,Arial,sans-serif;font-size:12pt;';
+  const estiloTd='padding:5px;border:1px solid #ddd;font-family:Aptos,Arial,sans-serif;font-size:12pt;';
+
+  function htmlSheet(filas, nombre){
+    let t=`<table border="1"><thead><tr>`;
+    COLS_LABEL.forEach(h=>{ t+=`<th style="${estiloTh}">${h}</th>`; });
+    t+=`</tr></thead><tbody>`;
+    filas.forEach(o=>{
+      t+=`<tr>`;
+      COLS_TABLA.forEach(c=>{ t+=`<td style="${estiloTd}">${o[c]||'—'}</td>`; });
+      t+=`</tr>`;
+    });
+    t+=`</tbody></table>`;
+    return t;
+  }
+
+  const xlsContent=`
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<xml><x:ExcelWorkbook><x:ExcelWorksheets>
+  <x:ExcelWorksheet><x:Name>Billable</x:Name><x:WorksheetOptions><x:Selected/></x:WorksheetOptions></x:ExcelWorksheet>
+  <x:ExcelWorksheet><x:Name>Warranty</x:Name></x:ExcelWorksheet>
+</x:ExcelWorksheets></x:ExcelWorkbook></xml></head>
+<body>
+<table x:str><tr><td><b>CRÍTICOS BILLABLE — ${ubicacion} — ${hoy}</b></td></tr></table>
+${htmlSheet(billables,'Billable')}
+<br><br>
+<table x:str><tr><td><b>CRÍTICOS WARRANTY — ${ubicacion} — ${hoy}</b></td></tr></table>
+${htmlSheet(warranties,'Warranty')}
+</body></html>`;
+
+  const blob=new Blob([xlsContent],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`Criticos_${ubicacion}_${hoy.replace(/\//g,'-')}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function getStatsSourceForCurrentView(){
+  let src=orders;
+  const enCalidad = (viewMode==='calidad');
+  if(viewMode==='tecnico') src=orders.filter(o=>o['Técnico Asignado']===currentTec);
+  else if(enCalidad){
+    src=orders.filter(o=>String(o['Estado']||'').toLowerCase().includes('in testing'));
+    if(selectedUbicacion) src=src.filter(o=>o['Ubicación']===selectedUbicacion);
+  }
+  else if(viewMode==='pendientes'){
+    src=orders.filter(o=>String(o['Técnico Asignado']||'').trim().toLowerCase()==='otros');
+    if(selectedUbicacion) src=src.filter(o=>o['Ubicación']===selectedUbicacion);
+  }
+  else if(viewMode==='gestion'){
+    src=orders.filter(o=>o['Ubicación']==='Provincia');
+  }
+  else if(viewMode==='gestion_lima'){
+    src=orders.filter(o=>o['Ubicación']==='Lima');
+  }
+  const isInTesting=o=>String(o['Estado']||'').toLowerCase().includes('in testing');
+  const passTestingFilter = enCalidad ? (()=>true) : (o=>!isInTesting(o));
+  return {src, passTestingFilter};
+}
+
+/* ── STATS ── */
+function updateStats(){
+  const {src, passTestingFilter} = getStatsSourceForCurrentView();
+  const closed=['cerrada','cerrado','completada','completado','finalizada','closed','complete','resolved'];
+
+  // WO ABIERTAS — todas las no cerradas (incluye In Testing siempre)
+  const open=src.filter(o=>!closed.some(x=>String(o['Estado']||'').toLowerCase().includes(x))).length;
+  document.getElementById('stat-open').textContent=open;
+
+  // EN BANDEJA — en Calidad: todas las In Testing. En otras vistas: abiertas sin In Testing.
+  const enBandeja=src.filter(o=>!closed.some(x=>String(o['Estado']||'').toLowerCase().includes(x)) && passTestingFilter(o)).length;
+  document.getElementById('stat-bandeja').textContent=enBandeja;
+
+  // CRÍTICAS — ECT >= 10 días, O bien marcadas con bandera de prioridad
+  const critical=src.filter(o=>{
+    if(!passTestingFilter(o)) return false;
+    if(o['Prioridad']) return true;
+    const v=parseFloat(String(o['ECT']||'').replace(/[^\d.]/g,''));
+    return !isNaN(v)&&v>=10;
+  }).length;
+  document.getElementById('stat-critical').textContent=critical;
+
+  // BILLABLE
+  const billable=src.filter(o=>passTestingFilter(o) && String(o['Servicio']||'').toLowerCase().includes('billable')).length;
+  document.getElementById('stat-billable').textContent=billable;
+
+  // WARRANTY
+  const warranty=src.filter(o=>{
+    if(!passTestingFilter(o)) return false;
+    const s=String(o['Servicio']||'').toLowerCase();
+    return s.includes('warranty')||s.includes('garant');
+  }).length;
+  document.getElementById('stat-warranty').textContent=warranty;
+
+  // PEND. ESTADO — solo cuenta si NO hay actualización registrada HOY
+  const pendingOrders=getPendingEstadoOrders(src, passTestingFilter);
+  document.getElementById('stat-pending').textContent=pendingOrders.length;
+
+  // EN CALIDAD — equipos del técnico/bandeja actual que están en In Testing.
+  // No se muestra dentro de la propia bandeja de Calidad (ahí se sobreentiende).
+  const pillCalidad=document.getElementById('pill-en-calidad');
+  if(pillCalidad){
+    if(viewMode==='calidad'){
+      pillCalidad.style.display='none';
+    } else {
+      pillCalidad.style.display='';
+      const enCalidadCount=src.filter(o=>String(o['Estado']||'').toLowerCase().includes('in testing')).length;
+      document.getElementById('stat-en-calidad').textContent=enCalidadCount;
+    }
+  }
+}
+
+/* Devuelve las órdenes (del set ya filtrado por vista) que no tienen
+   ninguna nota de bitácora registrada el día de hoy. Reutilizable
+   tanto para el indicador del header como para el modal de alerta. */
+function getPendingEstadoOrders(src, passTestingFilter){
+  const todayShort=`${String(new Date().getDate()).padStart(2,'0')}/${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  return src.filter(o=>{
+    if(passTestingFilter && !passTestingFilter(o)) return false;
+    const logs=getLogsForOrder(o._id);
+    const updatedToday=logs.some(l=>String(l.date||'').includes(todayShort));
+    return !updatedToday;
+  });
+}
+
+/* Filtra la bandeja al hacer clic en un indicador (Críticas / Billable / Warranty) */
+function filterByIndicator(type){
+  activeIndicator = activeIndicator===type ? '' : type;
+  ['critical','billable','warranty'].forEach(t=>{
+    const pill=document.getElementById('pill-'+t);
+    if(pill) pill.classList.toggle('is-active', activeIndicator===t);
+  });
+  renderBandeja();
+}
+
+/* ── EXPORT ── */
+function exportData(){
+  const rows=orders.map(o=>{
+    const b={}; COLS.forEach(c=>b[c]=o[c]||'');
+    b['Bitácora Manual']=(o._logs||[]).map(l=>`[${l.date}] ${l.text}`).join(' | ');
+    return b;
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Bitácora');
+  XLSX.writeFile(wb,`bitacora_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+/* ── CLEAR ── */
+function clearAll(){
+  if(!confirm('¿Eliminar TODOS los datos? No se puede deshacer.')) return;
+  orders=[];save();renderCurrent();updateStats();populateAllFilters();
+  showToast('🗑 Datos eliminados');
+}
+
+/* ── TOAST ── */
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ── UTILS ── */
+function v(id){ const el=document.getElementById(id); return el?el.value:''; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escId(s){ return encodeURIComponent(String(s)).replace(/[().%]/g,'_'); }
+function decId(s){ try{ return decodeURIComponent(s.replace(/_/g,'%')); }catch(e){ return s; } }
+
+function badgeEstado(s){
+  const vl=String(s||'').toLowerCase(); let c='badge-gray';
+  if(vl.includes('repair')||vl.includes('progreso')||vl.includes('proceso')||vl.includes('testing')) c='badge-blue';
+  else if(vl.includes('hold')||vl.includes('pendiente')||vl.includes('espera')) c='badge-warn';
+  else if(vl.includes('closed')||vl.includes('cerrada')||vl.includes('complete')||vl.includes('finaliz')) c='badge-green';
+  else if(vl.includes('error')||vl.includes('falla')||vl.includes('cancel')) c='badge-danger';
+  return `<span class="badge ${c}">${esc(s)||'—'}</span>`;
+}
+function badgeADP(s){
+  const vl=String(s||'').trim().toLowerCase();
+  if(vl==='yes') return `<span class="adp-yes">✔ ADP</span>`;
+  if(vl==='no')  return `<span class="adp-no">✗ ADP</span>`;
+  return s?`<span class="badge badge-gray">${esc(s)}</span>`:'';
+}
+/* Versión para columnas de tabla: muestra el texto "Yes"/"No" en vez del ícono */
+function badgeADPTabla(s){
+  const vl=String(s||'').trim().toLowerCase();
+  if(vl==='yes') return `<span class="adp-yes">Yes</span>`;
+  if(vl==='no')  return `<span class="adp-no">No</span>`;
+  return s?`<span class="badge badge-gray">${esc(s)}</span>`:'';
+}
+function badgeModalidad(s){
+  const vl=String(s||'').trim().toLowerCase();
+  if(vl==='carry-in'||vl==='carry in'||vl==='carryin') return `<span class="mod-carryin">📦 ${esc(s)}</span>`;
+  if(vl==='depot') return `<span class="mod-depot">🏭 ${esc(s)}</span>`;
+  return s?`<span class="mod-other">${esc(s)}</span>`:'';
+}
+/* Versión sin emoji, solo para uso en columnas de tabla (Admin / Bandeja modo tabla) */
+function badgeModalidadTabla(s){
+  const vl=String(s||'').trim().toLowerCase();
+  if(vl==='carry-in'||vl==='carry in'||vl==='carryin') return `<span class="mod-carryin">${esc(s)}</span>`;
+  if(vl==='depot') return `<span class="mod-depot">${esc(s)}</span>`;
+  return s?`<span class="mod-other">${esc(s)}</span>`:'';
+}
+/* Desviación: si es número puro o frases especiales, no agregar "días" */
+function formatDesviacion(s){
+  const raw=String(s||'').trim();
+  if(!raw) return '';
+  const lower=raw.toLowerCase();
+  const isPureNumber=/^-?\d+(\.\d+)?$/.test(raw);
+  const isSpecialPhrase = lower.includes('no se solicit') || lower.includes('espera de repuesto');
+  if(isPureNumber || isSpecialPhrase) return esc(raw);
+  return esc(raw); // ya no se agrega "días" en ningún caso, según valor tal cual viene
+}
+
+/* Versión abreviada de Desviación para la vista de tarjetas de técnico (espacio reducido).
+   "No se solicitó repuesto" → NSR, "En espera de repuesto" → ER, números se muestran igual. */
+function formatDesviacionAbrev(s){
+  const raw=String(s||'').trim();
+  if(!raw) return '';
+  const lower=raw.toLowerCase();
+  if(/^-?\d+(\.\d+)?$/.test(raw)) return esc(raw);
+  if(lower.includes('no se solicit')) return 'NSR';
+  if(lower.includes('espera de repuesto')) return 'ER';
+  return esc(raw);
+}
+
+/* ── DASHBOARD (BackLog del Laboratorio, en la portada) ── */
+let backlogChartInstance=null;
+let dashUbicacionFilter='Ambos'; // 'Ambos' | 'Lima' | 'Provincia'
+
+function setDashUbicacion(val){
+  dashUbicacionFilter=val;
+  ['ambos','lima','provincia'].forEach(id=>{
+    const btn=document.getElementById('dub-'+id);
+    if(btn) btn.classList.toggle('active', id===val.toLowerCase());
+  });
+  renderDashboard();
+}
+
+const closedStates=['cerrada','cerrado','completada','completado','finalizada','closed','complete','resolved'];
+const isClosed=o=>closedStates.some(x=>String(o['Estado']||'').toLowerCase().includes(x));
+const isTesting=o=>String(o['Estado']||'').toLowerCase().includes('in testing');
+const isSinAsignar=o=>String(o['Técnico Asignado']||'').trim().toLowerCase()==='otros';
+
+function renderDashboard(){
+  const canvas=document.getElementById('backlogChart');
+  const emptyEl=document.getElementById('dashboardEmpty');
+  if(!canvas) return;
+
+  // Filtro por ubicación (Lima / Provincia / Ambos)
+  const allAbiertas=orders.filter(o=>!isClosed(o));
+  const abiertas = dashUbicacionFilter==='Ambos'
+    ? allAbiertas
+    : allAbiertas.filter(o=>o['Ubicación']===dashUbicacionFilter);
+
+  if(!abiertas.length){
+    canvas.style.display='none';
+    if(emptyEl) emptyEl.style.display='block';
+  } else {
+    canvas.style.display='block';
+    if(emptyEl) emptyEl.style.display='none';
+    renderBacklogChart(abiertas);
+  }
+
+  // Indicadores (siempre sobre el total sin filtrar por ubicación para tener visión completa)
+  document.getElementById('dc-open').textContent = allAbiertas.length;
+
+  const diagRepair = allAbiertas.filter(o=>!isSinAsignar(o) && !isTesting(o)).length;
+  document.getElementById('dc-diag').textContent = diagRepair;
+
+  const calidad = abiertas.filter(isTesting).length;
+  document.getElementById('dc-calidad').textContent = calidad;
+
+  const pendAsig = abiertas.filter(isSinAsignar).length;
+  document.getElementById('dc-pend').textContent = pendAsig;
+}
+
+function renderBacklogChart(abiertas){
+  const rangos=[
+    {label:'0-3',    min:0,  max:3},
+    {label:'4-7',    min:4,  max:7},
+    {label:'8-15',   min:8,  max:15},
+    {label:'16-30',  min:16, max:30},
+    {label:'31 a más', min:31, max:Infinity}
+  ];
+
+  const counts=rangos.map(r=>{
+    return abiertas.filter(o=>{
+      const v=parseFloat(String(o['ECT']||'').replace(/[^\d.]/g,''));
+      const ect=isNaN(v)?0:v;
+      return ect>=r.min && ect<=r.max;
+    }).length;
+  });
+
+  const total=abiertas.length || 1;
+  const percentages=counts.map(c=>+( (c/total)*100 ).toFixed(2));
+
+  const ctx=document.getElementById('backlogChart').getContext('2d');
+  if(backlogChartInstance) backlogChartInstance.destroy();
+
+  backlogChartInstance=new Chart(ctx,{
+    data:{
+      labels:rangos.map(r=>r.label),
+      datasets:[
+        {
+          type:'bar',
+          label:'Conteo WO',
+          data:counts,
+          backgroundColor:'#a8d18d',
+          borderColor:'#8cb96f',
+          borderWidth:1,
+          borderRadius:3,
+          yAxisID:'yCount',
+          order:2,
+          datalabels:{}
+        },
+        {
+          type:'line',
+          label:'Porcentaje WO',
+          data:percentages,
+          borderColor:'#5b9bd5',
+          backgroundColor:'#5b9bd5',
+          borderWidth:2,
+          pointRadius:4,
+          pointBackgroundColor:'#5b9bd5',
+          tension:0.25,
+          yAxisID:'yPct',
+          order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{ padding:{ top:28, right:10 } },
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:function(ctx){
+              if(ctx.dataset.label==='Porcentaje WO') return ' Porcentaje: '+ctx.parsed.y+'%';
+              return ' Conteo: '+ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales:{
+        yCount:{
+          type:'linear',position:'left',
+          beginAtZero:true,
+          grid:{color:'#eef0f4'},
+          ticks:{font:{size:11}}
+        },
+        yPct:{
+          type:'linear',position:'right',
+          beginAtZero:true,
+          max:100,
+          grid:{display:false},
+          ticks:{font:{size:11}, callback:v=>v+'%'}
+        },
+        x:{
+          grid:{display:false},
+          ticks:{font:{size:12,weight:'600'}}
+        }
+      }
+    },
+    plugins:[{
+      id:'dataLabels',
+      afterDatasetsDraw(chart){
+        const {ctx}=chart;
+        chart.data.datasets.forEach((ds,i)=>{
+          const meta=chart.getDatasetMeta(i);
+          meta.data.forEach((point,idx)=>{
+            const val=ds.data[idx];
+            ctx.save();
+            ctx.font='bold 12px Inter, sans-serif';
+            ctx.textAlign='center';
+            if(ds.type==='bar'){
+              ctx.fillStyle='#3a5a2e';
+              ctx.fillText(val, point.x, point.y - 8);
+            } else {
+              ctx.fillStyle='#2f5d8a';
+              ctx.fillText(val+'%', point.x + 18, point.y - 6);
+            }
+            ctx.restore();
+          });
+        });
+      }
+    }]
+  });
+}
+
+/* Carga inicial: trae las órdenes desde la nube apenas se abre la página, para mostrar el dashboard */
+async function initDashboard(){
+  if(cloudEnabled()){
+    await cloudLoadOrdenes();
+  }
+  renderDashboard();
+}
+
+/* ── COLUMNAS REDIMENSIONABLES ── */
+/* Agrega manijas de arrastre en el borde derecho de cada <th>, permitiendo
+   al usuario ajustar el ancho de las columnas en modo Tabla (Admin y Bandeja). */
+function makeTableResizable(tableId){
+  const table=document.getElementById(tableId);
+  if(!table || table.dataset.resizableInit) return; // evita inicializar dos veces
+  table.classList.add('resizable-table');
+  table.dataset.resizableInit='1';
+
+  const ths=table.querySelectorAll('thead th');
+  ths.forEach(th=>{
+    // Asigna un ancho inicial basado en su tamaño actual, para que table-layout:fixed no colapse todo
+    const initialWidth=th.offsetWidth;
+    if(initialWidth) th.style.width=initialWidth+'px';
+
+    const handle=document.createElement('div');
+    handle.className='col-resize-handle';
+    th.appendChild(handle);
+
+    let startX=0, startWidth=0;
+
+    function onMouseMove(e){
+      const newWidth=Math.max(40, startWidth + (e.clientX - startX));
+      th.style.width=newWidth+'px';
+    }
+    function onMouseUp(){
+      handle.classList.remove('resizing');
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    handle.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      e.stopPropagation(); // evita disparar el sortBy del th al arrastrar
+      startX=e.clientX;
+      startWidth=th.offsetWidth;
+      handle.classList.add('resizing');
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    // Evita que el clic en la manija dispare el onclick de ordenar (sortBy)
+    handle.addEventListener('click', e=>e.stopPropagation());
+  });
+}
+
+/* Muestra/oculta el texto de un campo de contraseña al hacer clic en el ícono de ojo */
+function togglePasswordVisibility(inputId, eyeEl){
+  const input=document.getElementById(inputId);
+  if(!input) return;
+  const isHidden=input.type==='password';
+  input.type=isHidden?'text':'password';
+  eyeEl.textContent=isHidden?'🙈':'👁️';
+}
+
+/* ── MODO OSCURO ── */
+function toggleDarkMode(){
+  const isDark=document.body.classList.toggle('dark-mode');
+  localStorage.setItem('modo_oscuro', isDark ? '1' : '0');
+  updateDarkModeIcon(isDark);
+}
+function updateDarkModeIcon(isDark){
+  const btn=document.getElementById('darkModeToggle');
+  if(btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+function applyStoredDarkMode(){
+  const stored=localStorage.getItem('modo_oscuro');
+  const isDark=stored==='1';
+  document.body.classList.toggle('dark-mode', isDark);
+  updateDarkModeIcon(isDark);
+}
+
+/* ── INIT ── */
+applyStoredDarkMode();
+load();
+renderDashboard(); // primero con datos locales (si hay), mientras llega la nube
+initDashboard();   // luego refresca desde Google Sheets
+(function setCloudStatusBadge(){
+  const el=document.getElementById('cloudStatus');
+  if(!el) return;
+  el.textContent = cloudEnabled() ? '☁ Bitácora en la nube activa' : '⚠ Bitácora solo local (configura Google Sheets)';
+  el.style.color = cloudEnabled() ? '#059669' : '#d97706';
+})();
+</script>
+</body>
+</html>
